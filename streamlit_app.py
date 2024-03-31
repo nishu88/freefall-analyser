@@ -430,21 +430,6 @@ def main():
                 tradesData = tradesData[tradesData['Buy/Sell']
                                         .str.startswith(tuple(buySell))]
 
-        with st.expander('Get Quantstats Report'):
-            result = st.button('Run')
-            if result:
-                pnls = tradesData['PnL']
-                returns = pnls / initialCapital
-                returns.index = pd.to_datetime(tradesData['Entry Date/Time'])
-                returns = returns.sort_index()
-                print(returns)
-                st.components.v1.html(quantstats_reports.html(returns, title='Tearsheet', compounded=False, output='tearsheet1.html'),
-                                      height=1000,
-                                      scrolling=True)
-                st.components.v1.html(quantstats_reports.html(returns, "^NSEI", title='Strategy vs Benchmark', compounded=False, output='tearsheet2.html'),
-                                      height=1000,
-                                      scrolling=True)
-
         if selectedGroupCriteria is not None:
             if selectedGroupCriteria == 'Date':
                 groupBy = tradesData.groupby('Date')
@@ -473,6 +458,23 @@ def main():
                 cumulativePnL = tradesData['PnL'].cumsum()
                 cumulativePnL.index = tradesData['Entry Date/Time']
                 runningMaxPnL = cumulativePnL.cummax()
+
+            st.title(" ")    
+            with st.expander('Get Quantstats Report'):
+                result = st.button('Run')
+                if result:
+                    pnls = tradesData['PnL']
+                    returns = pnls / initialCapital
+                    returns.index = pd.to_datetime(tradesData['Entry Date/Time'])
+                    returns = returns.sort_index()
+                    print(returns)
+                    st.components.v1.html(quantstats_reports.html(returns, title='Tearsheet', compounded=False, output='tearsheet1.html'),
+                                        height=1000,
+                                        scrolling=True)
+                    st.components.v1.html(quantstats_reports.html(returns, "^NSEI", title='Strategy vs Benchmark', compounded=False, output='tearsheet2.html'),
+                                        height=1000,
+                                        scrolling=True)   
+            st.title(" ")
 
             runningMaxPnL = cumulativePnL.cummax()
             drawdown = cumulativePnL - runningMaxPnL
@@ -521,6 +523,6 @@ def main():
 
         # with st.expander("Check dataframe"):
         #     st.dataframe(tradesData, use_container_width=True)
-
+        st.toast('Check out the Quantstats Report', icon='🧐') 
 if __name__ == "__main__":
     main()
