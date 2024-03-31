@@ -320,7 +320,7 @@ def customCmap():
     return LinearSegmentedColormap.from_list('custom_map', [red, white, green], N=256)
 
 def main():
-    st.set_page_config(page_title="Backtest Analyzer", layout="wide")
+    st.set_page_config(page_title="Trades Analyzer", layout="wide")
     col1, col, col2 = st.columns([1, 8, 1])
 
     with col:
