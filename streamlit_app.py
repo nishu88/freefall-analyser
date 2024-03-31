@@ -1,249 +1,526 @@
-import streamlit as st
+# Date	     PnL		Instrument	Buy/Sell
+# 1/31/2024   0			BANKNIFTY	Sell
+
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-import altair as alt
-import time
-import zipfile
-
-# Page title
-st.set_page_config(page_title='ML Model Building', page_icon='🤖')
-st.title('🤖 ML Model Building')
-
-with st.expander('About this app'):
-  st.markdown('**What can this app do?**')
-  st.info('This app allow users to build a machine learning (ML) model in an end-to-end workflow. Particularly, this encompasses data upload, data pre-processing, ML model building and post-model analysis.')
-
-  st.markdown('**How to use the app?**')
-  st.warning('To engage with the app, go to the sidebar and 1. Select a data set and 2. Adjust the model parameters by adjusting the various slider widgets. As a result, this would initiate the ML model building process, display the model results as well as allowing users to download the generated models and accompanying data.')
-
-  st.markdown('**Under the hood**')
-  st.markdown('Data sets:')
-  st.code('''- Drug solubility data set
-  ''', language='markdown')
-  
-  st.markdown('Libraries used:')
-  st.code('''- Pandas for data wrangling
-- Scikit-learn for building a machine learning model
-- Altair for chart creation
-- Streamlit for user interface
-  ''', language='markdown')
+import plotly.graph_objs as go
+import streamlit as st
+from matplotlib.colors import LinearSegmentedColormap
+from thirdparty import calplot, quantstats_reports
 
 
-# Sidebar for accepting input parameters
-with st.sidebar:
-    # Load data
-    st.header('1.1. Input data')
+# Calculate Winning and Losing Streaks
 
-    st.markdown('**1. Use custom data**')
-    uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file, index_col=False)
-      
-    # Download example data
-    @st.cache_data
-    def convert_df(input_df):
-        return input_df.to_csv(index=False).encode('utf-8')
-    example_csv = pd.read_csv('https://raw.githubusercontent.com/dataprofessor/data/master/delaney_solubility_with_descriptors.csv')
-    csv = convert_df(example_csv)
-    st.download_button(
-        label="Download example CSV",
-        data=csv,
-        file_name='delaney_solubility_with_descriptors.csv',
-        mime='text/csv',
+
+def GetStreaks(tradesData):
+    win_streak = 0
+    loss_streak = 0
+    max_win_streak = 0
+    max_loss_streak = 0
+    prev_trade_profit = 0
+    for trade_profit in tradesData['PnL']:
+        if trade_profit > 0:
+            win_streak += 1
+            loss_streak = 0
+            if win_streak > max_win_streak:
+                max_win_streak = win_streak
+        elif trade_profit < 0:
+            loss_streak += 1
+            win_streak = 0
+            if loss_streak > max_loss_streak:
+                max_loss_streak = loss_streak
+        else:
+            win_streak = 0
+            loss_streak = 0
+        prev_trade_profit = trade_profit
+
+    return max_win_streak, max_loss_streak
+
+
+# Calculate Expectancy
+def GetExpectancy(tradesData):
+    winningTrades = tradesData[tradesData['PnL'] > 0]['PnL']
+    losingTrades = tradesData[tradesData['PnL'] < 0]['PnL']
+
+    winningTradesAvg = winningTrades.mean()
+    losingTradesAvg = losingTrades.mean()
+
+    winningTradesCount = len(winningTrades)
+    losingTradesCount = len(losingTrades)
+
+    totalTrades = winningTradesCount + losingTradesCount
+    winningTradesPct = winningTradesCount / totalTrades
+    losingTradesPct = losingTradesCount / totalTrades
+
+    expectancy = (abs(winningTradesAvg / losingTradesAvg)
+                  * winningTradesPct) - losingTradesPct
+
+    return expectancy
+
+
+def box(col, key, value, percentage=None, color='green'):
+    with col:
+        style = """
+            <style>
+            .average__card {
+                position: relative;
+                padding: 0;
+                height: 100%;
+                border: 1px solid green;
+                border-radius: 4px;
+                text-align: center;
+                overflow: hidden;
+            }
+            .average__card .__title {
+                padding: 5px 0;
+                border-bottom: 1px solid;
+                border-radius: 4px 4px 0 0;
+                color: green;
+                background-color: rgba(0, 128, 0, 0.15);
+            }
+            .average__card .__value {
+                padding: 10px 0;
+            }
+            .__average__price {
+                border-color: #f19f15;
+            }
+            .__average__price .__title {
+                color: #f19f15;
+                background-color: #fef8e1;
+            }
+            .__loss__price {
+                border-color: #ef9a99;
+            }
+            .__loss__price .__title {
+                color: red;
+                border-color: #ef9a99;
+                background-color: #fbebee;
+            }
+            .stats_percent {
+                font-size: 13px;
+                opacity: 0.8;
+            }
+            </style>
+        """
+
+        subclass = '__average__price' if color == 'yellow' else (
+            '__loss__price' if color == 'red' else '')
+        percent = f'<span class="stats_percent">({percentage})</span>' if percentage is not None else ''
+        st.markdown(
+            f'<div class="average__card {subclass}"><div class="__title">{key}</div><div class="__value">{value} {percent}</div></div>{style}',
+            unsafe_allow_html=True
+        )
+
+
+def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
+    if tradesData.empty:
+        return
+
+    overallPnL = tradesData['PnL'].sum()
+    averageProfit = tradesData['PnL'].mean()
+    maxProfit = tradesData['PnL'].max()
+    maxLoss = tradesData['PnL'].min()
+
+    col1, col2, col3, col4, col5 = st.columns(5, gap='small')
+    box(col1, 'Initial Capital', f'₹{initialCapital}')
+    box(col2, 'Overall Profit/Loss',
+        f'₹{round(overallPnL, 2)}', f'{round((overallPnL/initialCapital)*100, 2)}%')
+    box(col3, 'Average Day Profit', f'₹{round(averageProfit, 2)}',
+        f'{round((averageProfit/initialCapital)*100, 2)}%', color='yellow')
+    box(col4, 'Max Profit', f'₹{round(maxProfit, 2)}',
+        f'{round((maxProfit/initialCapital)*100, 2)}%')
+    box(col5, 'Max Loss', f'₹{round(maxLoss, 2)}',
+        f'{round((maxLoss/initialCapital)*100, 2)}%', color='red')
+    st.write('')
+
+    wins = tradesData['PnL'][tradesData['PnL'] > 0].count()
+    losses = tradesData['PnL'][tradesData['PnL'] < 0].count()
+    totalCount = tradesData['PnL'].count()
+    winPercentage = (wins / totalCount) * 100
+    lossPercentage = (losses / totalCount) * 100
+    monthlyProfit = tradesData.resample(
+        'M', on='Date').sum(numeric_only=True)['PnL'].mean()
+    averageProfitOnWins = tradesData['PnL'][tradesData['PnL'] > 0].mean()
+    averageLossOnLosses = tradesData['PnL'][tradesData['PnL'] < 0].mean()
+
+    col1, col2, col3, col4, col5 = st.columns(5, gap='small')
+    box(col1, 'Win% (Days)', f'{round(winPercentage, 2)} ({wins})')
+    box(col2, 'Loss% (Days)',
+        f'{round(lossPercentage, 2)} ({losses})', color='red')
+    box(col3, 'Avg Monthly Profit', '₹{:.2f}'.format(
+        monthlyProfit), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
+    box(col4, 'Avg Profit On Win Days', '₹{:.2f}'.format(
+        averageProfitOnWins), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%', initialCapital)
+    box(col5, 'Avg Loss On Loss Days', '₹{:.2f}'.format(
+        averageLossOnLosses), f'{round((averageLossOnLosses/initialCapital)*100, 2)}%', color='red')
+    st.write('')
+
+    cumulativePnL = tradesData['PnL'].cumsum()
+    runningMaxPnL = cumulativePnL.cummax()
+    drawdown = cumulativePnL - runningMaxPnL
+    mdd = drawdown.min()
+
+    # Calculate drawdown durations and keep track of start and end dates
+    drawdown_durations = []
+    drawdown_start_dates = []
+    drawdown_end_dates = []
+
+    prev_drawdown_idx = None
+    for idx, pnl in enumerate(drawdown):
+        if pnl < 0:
+            if prev_drawdown_idx is None:
+                prev_drawdown_idx = idx
+        elif prev_drawdown_idx is not None:
+            drawdown_start_date = tradesData['Date'][prev_drawdown_idx]
+            drawdown_end_date = tradesData['Date'][idx - 1]
+            drawdown_duration = (drawdown_end_date -
+                                 drawdown_start_date).days + 1
+            drawdown_durations.append(drawdown_duration)
+            drawdown_start_dates.append(drawdown_start_date)
+            drawdown_end_dates.append(drawdown_end_date)
+            prev_drawdown_idx = None
+
+    # Check if the last trade is still in a drawdown
+    if prev_drawdown_idx is not None:
+        drawdown_start_date = tradesData['Date'][prev_drawdown_idx]
+        drawdown_end_date = tradesData['Date'][len(drawdown) - 1]
+        drawdown_duration = (drawdown_end_date -
+                            drawdown_start_date).days + 1
+        drawdown_durations.append(drawdown_duration)
+        drawdown_start_dates.append(drawdown_start_date)
+        drawdown_end_dates.append(drawdown_end_date)
+
+    # Filter out None values from drawdown_start_dates and drawdown_end_dates
+    drawdown_start_dates = [
+        date for date in drawdown_start_dates if date is not None]
+    drawdown_end_dates = [
+        date for date in drawdown_end_dates if date is not None]
+
+    if not drawdown_start_dates or not drawdown_end_dates:  # Check if any drawdowns are found
+        longest_drawdown_duration = 0
+        longest_drawdown_start_date = None
+        longest_drawdown_end_date = None
+    else:
+        # Find the index of the longest drawdown duration
+        longest_drawdown_index = drawdown_durations.index(
+            max(drawdown_durations))
+
+        # Retrieve the longest drawdown duration and its corresponding start and end dates
+        longest_drawdown_duration = drawdown_durations[longest_drawdown_index]
+        longest_drawdown_start_date = drawdown_start_dates[longest_drawdown_index]
+        longest_drawdown_end_date = drawdown_end_dates[longest_drawdown_index]
+
+    # Retrieve the longest drawdown duration and its corresponding start and end dates
+    mddDays = longest_drawdown_duration
+    mddStartDate = longest_drawdown_start_date
+    mddEndDate = longest_drawdown_end_date
+    mddDateRange = f"{mddStartDate.strftime('%d %b %Y') if mddStartDate is not None else ''} - {mddEndDate.strftime('%d %b %Y') if mddEndDate is not None else ''}"
+
+    # Calculate the Return to MDD ratio
+    averageYearlyProfit = tradesData.set_index(
+        'Date')['PnL'].cumsum().resample('Y').last().diff().mean()
+    returnToMddRatio = abs(averageYearlyProfit / mdd)
+
+    col1, col2, col3 = st.columns(3, gap='small')
+    box(col1, 'Max Drawdown (MDD)',
+        f'{mdd:.2f}', f'{(mdd/initialCapital)*100:.2f}%', color='red')
+    box(col2, 'MDD Days (Recovery Days)',
+        f'{mddDays}', mddDateRange, color='red')
+    box(col3, 'Return to MDD Ratio',
+        'Requires minimum 1Yr data' if returnToMddRatio is not None else f'{returnToMddRatio:.2f}')
+    st.write('')
+
+    maxWinningStreak, maxLosingStreak = GetStreaks(tradesData)
+    expectancy = GetExpectancy(tradesData)
+
+    col1, col2, col3, col4 = st.columns(4, gap='small')
+    box(col1, 'Number of Strategies', f'{numOfFiles}')
+    box(col2, 'Max Winning Streak', f'{maxWinningStreak}')
+    box(col3, 'Max Losing Streak',
+        f'{maxLosingStreak}', color='red')
+    box(col4, 'Expectancy', f'{expectancy:.2f}')
+    st.write('')
+
+
+def plotScatterMAE(tradesData):
+    tradesData[['MAE', 'MFE', 'PnL']] = tradesData[[
+        'MAE', 'MFE', 'PnL']].fillna(0)
+
+    mae = tradesData['MAE']
+    pnl = tradesData['PnL']
+
+    # Check for collinearity
+    correlation_matrix = tradesData[['MAE', 'MFE', 'PnL']].corr()
+    if correlation_matrix.iloc[0, 1] > 0.9:
+        st.error(
+            "High collinearity detected between MAE and MFE. Consider removing one of the variables.")
+        return
+
+    # Handle missing or invalid data
+    tradesData[['MAE', 'MFE', 'PnL']] = tradesData[[
+        'MAE', 'MFE', 'PnL']].fillna(0)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=abs(mae),
+        y=abs(pnl),
+        mode='markers',
+        name='MAE',
+        marker=dict(color=np.where(pnl < 0, 'red', 'green'))
+    ))
+    fig.update_layout(
+        title='MAE vs PnL',
+        xaxis_title='MAE',
+        yaxis_title='PnL'
     )
+    st.plotly_chart(fig, use_container_width=True)
 
-    # Select example data
-    st.markdown('**1.2. Use example data**')
-    example_data = st.toggle('Load example data')
-    if example_data:
-        df = pd.read_csv('https://raw.githubusercontent.com/dataprofessor/data/master/delaney_solubility_with_descriptors.csv')
 
-    st.header('2. Set Parameters')
-    parameter_split_size = st.slider('Data split ratio (% for Training Set)', 10, 90, 80, 5)
+def plotScatterMFE(tradesData):
+    tradesData[['MAE', 'MFE', 'PnL']] = tradesData[[
+        'MAE', 'MFE', 'PnL']].fillna(0)
 
-    st.subheader('2.1. Learning Parameters')
-    with st.expander('See parameters'):
-        parameter_n_estimators = st.slider('Number of estimators (n_estimators)', 0, 1000, 100, 100)
-        parameter_max_features = st.select_slider('Max features (max_features)', options=['all', 'sqrt', 'log2'])
-        parameter_min_samples_split = st.slider('Minimum number of samples required to split an internal node (min_samples_split)', 2, 10, 2, 1)
-        parameter_min_samples_leaf = st.slider('Minimum number of samples required to be at a leaf node (min_samples_leaf)', 1, 10, 2, 1)
+    mfe = tradesData['MFE']
+    pnl = tradesData['PnL']
 
-    st.subheader('2.2. General Parameters')
-    with st.expander('See parameters', expanded=False):
-        parameter_random_state = st.slider('Seed number (random_state)', 0, 1000, 42, 1)
-        parameter_criterion = st.select_slider('Performance measure (criterion)', options=['squared_error', 'absolute_error', 'friedman_mse'])
-        parameter_bootstrap = st.select_slider('Bootstrap samples when building trees (bootstrap)', options=[True, False])
-        parameter_oob_score = st.select_slider('Whether to use out-of-bag samples to estimate the R^2 on unseen data (oob_score)', options=[False, True])
+    # Check for collinearity
+    correlation_matrix = tradesData[['MAE', 'MFE', 'PnL']].corr()
+    if correlation_matrix.iloc[0, 1] > 0.9:
+        st.error(
+            "High collinearity detected between MAE and MFE. Consider removing one of the variables.")
+        return
 
-    sleep_time = st.slider('Sleep time', 0, 3, 0)
+    # Handle missing or invalid data
+    tradesData[['MAE', 'MFE', 'PnL']] = tradesData[[
+        'MAE', 'MFE', 'PnL']].fillna(0)
 
-# Initiate the model building process
-if uploaded_file or example_data: 
-    with st.status("Running ...", expanded=True) as status:
-    
-        st.write("Loading data ...")
-        time.sleep(sleep_time)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=mfe,
+        y=abs(pnl),
+        mode='markers',
+        name='MFE',
+        marker=dict(color=np.where(pnl < 0, 'red', 'green'))
+    ))
+    fig.update_layout(
+        title='MFE vs PnL',
+        xaxis_title='MFE',
+        yaxis_title='PnL'
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-        st.write("Preparing data ...")
-        time.sleep(sleep_time)
-        X = df.iloc[:,:-1]
-        y = df.iloc[:,-1]
-            
-        st.write("Splitting data ...")
-        time.sleep(sleep_time)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(100-parameter_split_size)/100, random_state=parameter_random_state)
-    
-        st.write("Model training ...")
-        time.sleep(sleep_time)
 
-        if parameter_max_features == 'all':
-            parameter_max_features = None
-            parameter_max_features_metric = X.shape[1]
-        
-        rf = RandomForestRegressor(
-                n_estimators=parameter_n_estimators,
-                max_features=parameter_max_features,
-                min_samples_split=parameter_min_samples_split,
-                min_samples_leaf=parameter_min_samples_leaf,
-                random_state=parameter_random_state,
-                criterion=parameter_criterion,
-                bootstrap=parameter_bootstrap,
-                oob_score=parameter_oob_score)
-        rf.fit(X_train, y_train)
-        
-        st.write("Applying model to make predictions ...")
-        time.sleep(sleep_time)
-        y_train_pred = rf.predict(X_train)
-        y_test_pred = rf.predict(X_test)
-            
-        st.write("Evaluating performance metrics ...")
-        time.sleep(sleep_time)
-        train_mse = mean_squared_error(y_train, y_train_pred)
-        train_r2 = r2_score(y_train, y_train_pred)
-        test_mse = mean_squared_error(y_test, y_test_pred)
-        test_r2 = r2_score(y_test, y_test_pred)
-        
-        st.write("Displaying performance metrics ...")
-        time.sleep(sleep_time)
-        parameter_criterion_string = ' '.join([x.capitalize() for x in parameter_criterion.split('_')])
-        #if 'Mse' in parameter_criterion_string:
-        #    parameter_criterion_string = parameter_criterion_string.replace('Mse', 'MSE')
-        rf_results = pd.DataFrame(['Random forest', train_mse, train_r2, test_mse, test_r2]).transpose()
-        rf_results.columns = ['Method', f'Training {parameter_criterion_string}', 'Training R2', f'Test {parameter_criterion_string}', 'Test R2']
-        # Convert objects to numerics
-        for col in rf_results.columns:
-            rf_results[col] = pd.to_numeric(rf_results[col], errors='ignore')
-        # Round to 3 digits
-        rf_results = rf_results.round(3)
-        
-    status.update(label="Status", state="complete", expanded=False)
+def customCmap():
+    # Define the colors for the custom colormap
+    red = (0.86, 0.08, 0.24)   # RGB values for extreme red
+    white = (1.0, 1.0, 1.0)         # RGB values for white
+    green = (0.0, 1.0, 0.0) # RGB values for extreme green
 
-    # Display data info
-    st.header('Input data', divider='rainbow')
-    col = st.columns(4)
-    col[0].metric(label="No. of samples", value=X.shape[0], delta="")
-    col[1].metric(label="No. of X variables", value=X.shape[1], delta="")
-    col[2].metric(label="No. of Training samples", value=X_train.shape[0], delta="")
-    col[3].metric(label="No. of Test samples", value=X_test.shape[0], delta="")
-    
-    with st.expander('Initial dataset', expanded=True):
-        st.dataframe(df, height=210, use_container_width=True)
-    with st.expander('Train split', expanded=False):
-        train_col = st.columns((3,1))
-        with train_col[0]:
-            st.markdown('**X**')
-            st.dataframe(X_train, height=210, hide_index=True, use_container_width=True)
-        with train_col[1]:
-            st.markdown('**y**')
-            st.dataframe(y_train, height=210, hide_index=True, use_container_width=True)
-    with st.expander('Test split', expanded=False):
-        test_col = st.columns((3,1))
-        with test_col[0]:
-            st.markdown('**X**')
-            st.dataframe(X_test, height=210, hide_index=True, use_container_width=True)
-        with test_col[1]:
-            st.markdown('**y**')
-            st.dataframe(y_test, height=210, hide_index=True, use_container_width=True)
+    # Create a custom color map using LinearSegmentedColormap
+    return LinearSegmentedColormap.from_list('custom_map', [red, white, green], N=256)
 
-    # Zip dataset files
-    df.to_csv('dataset.csv', index=False)
-    X_train.to_csv('X_train.csv', index=False)
-    y_train.to_csv('y_train.csv', index=False)
-    X_test.to_csv('X_test.csv', index=False)
-    y_test.to_csv('y_test.csv', index=False)
-    
-    list_files = ['dataset.csv', 'X_train.csv', 'y_train.csv', 'X_test.csv', 'y_test.csv']
-    with zipfile.ZipFile('dataset.zip', 'w') as zipF:
-        for file in list_files:
-            zipF.write(file, compress_type=zipfile.ZIP_DEFLATED)
+def main():
+    st.set_page_config(page_title="Backtest Analyzer", layout="wide")
+    col1, col, col2 = st.columns([1, 8, 1])
 
-    with open('dataset.zip', 'rb') as datazip:
-        btn = st.download_button(
-                label='Download ZIP',
-                data=datazip,
-                file_name="dataset.zip",
-                mime="application/octet-stream"
-                )
-    
-    # Display model parameters
-    st.header('Model parameters', divider='rainbow')
-    parameters_col = st.columns(3)
-    parameters_col[0].metric(label="Data split ratio (% for Training Set)", value=parameter_split_size, delta="")
-    parameters_col[1].metric(label="Number of estimators (n_estimators)", value=parameter_n_estimators, delta="")
-    parameters_col[2].metric(label="Max features (max_features)", value=parameter_max_features_metric, delta="")
-    
-    # Display feature importance plot
-    importances = rf.feature_importances_
-    feature_names = list(X.columns)
-    forest_importances = pd.Series(importances, index=feature_names)
-    df_importance = forest_importances.reset_index().rename(columns={'index': 'feature', 0: 'value'})
-    
-    bars = alt.Chart(df_importance).mark_bar(size=40).encode(
-             x='value:Q',
-             y=alt.Y('feature:N', sort='-x')
-           ).properties(height=250)
+    with col:
+        uploadedFiles = st.file_uploader(
+            "",
+            key="1",
+            help="To activate 'wide mode', go to the hamburger menu > Settings > turn on 'wide mode'",
+            accept_multiple_files=True
+        )
+        if len(uploadedFiles) == 0:
+            st.info("👆 Upload a backtest csv file first.")
+            st.stop()
 
-    performance_col = st.columns((2, 0.2, 3))
-    with performance_col[0]:
-        st.header('Model performance', divider='rainbow')
-        st.dataframe(rf_results.T.reset_index().rename(columns={'index': 'Parameter', 0: 'Value'}))
-    with performance_col[2]:
-        st.header('Feature importance', divider='rainbow')
-        st.altair_chart(bars, theme='streamlit', use_container_width=True)
+        # List to store the dataframes
+        dataframes = []
 
-    # Prediction results
-    st.header('Prediction results', divider='rainbow')
-    s_y_train = pd.Series(y_train, name='actual').reset_index(drop=True)
-    s_y_train_pred = pd.Series(y_train_pred, name='predicted').reset_index(drop=True)
-    df_train = pd.DataFrame(data=[s_y_train, s_y_train_pred], index=None).T
-    df_train['class'] = 'train'
-        
-    s_y_test = pd.Series(y_test, name='actual').reset_index(drop=True)
-    s_y_test_pred = pd.Series(y_test_pred, name='predicted').reset_index(drop=True)
-    df_test = pd.DataFrame(data=[s_y_test, s_y_test_pred], index=None).T
-    df_test['class'] = 'test'
-    
-    df_prediction = pd.concat([df_train, df_test], axis=0)
-    
-    prediction_col = st.columns((2, 0.2, 3))
-    
-    # Display dataframe
-    with prediction_col[0]:
-        st.dataframe(df_prediction, height=320, use_container_width=True)
+        for uploaded_file in uploadedFiles:
+            # Read each CSV file as a dataframe
+            df = pd.read_csv(uploaded_file)
 
-    # Display scatter plot of actual vs predicted values
-    with prediction_col[2]:
-        scatter = alt.Chart(df_prediction).mark_circle(size=60).encode(
-                        x='actual',
-                        y='predicted',
-                        color='class'
-                  )
-        st.altair_chart(scatter, theme='streamlit', use_container_width=True)
+            df = df[df['PnL'] != 0]
+            df['Entry Date/Time'] = df['Date']
+            df['Exit Date/Time'] = df['Date']
+            # Append the dataframe to the list
+            dataframes.append(df)
 
-    
-# Ask for CSV upload if none is detected
-else:
-    st.warning('👈 Upload a CSV file or click *"Load example data"* to get started!')
+        tradesData = pd.concat(dataframes)
+        tradesData.sort_values(by="Entry Date/Time", inplace=True)
+        tradesData.reset_index(drop=True, inplace=True)
+
+        tradesData["Entry Date/Time"] = pd.to_datetime(
+            tradesData["Entry Date/Time"])
+        tradesData["Exit Date/Time"] = pd.to_datetime(
+            tradesData["Exit Date/Time"])
+        tradesData["Date"] = pd.to_datetime(tradesData["Date"])
+
+        groupCol, initialCapitalCol, fromDateCol, toDateCol, slippageCol = st.columns([
+            1, 1, 2, 2, 2])
+
+        with groupCol:
+            selectedGroupCriteria = st.selectbox(
+                'Group by', ('Date', 'Day'))
+
+        with initialCapitalCol:
+            initialCapital = st.text_input(
+                'Initial Capital', placeholder='200000')
+            if initialCapital is not None and initialCapital != '':
+                initialCapital = int(float(initialCapital))
+            else:
+                return
+
+        min_date = tradesData["Entry Date/Time"].min().date()
+        max_date = tradesData["Exit Date/Time"].max().date()
+        with fromDateCol:
+            selected_from_date = st.date_input("From Date", min_value=min_date, max_value=max_date,
+                                               value=min_date)
+
+        with toDateCol:
+            selected_to_date = st.date_input("To Date", min_value=min_date, max_value=max_date,
+                                             value=max_date)
+
+        tradesData = tradesData[(tradesData['Entry Date/Time'].dt.date >= selected_from_date) &
+                                (tradesData['Exit Date/Time'].dt.date <= selected_to_date)]
+
+        # with slippageCol:
+        #     slippage = st.slider('Slippage %', 0.0, 5.0, 0.0, 0.1)
+
+        #     if slippage:
+        #         tradesData['PnL_WithoutSlippage'] = tradesData['PnL']
+        #         tradesData['PnL'] = tradesData['PnL'] - \
+        #             (((tradesData['Entry Price'] * slippage) /
+        #              100.0) * tradesData['Quantity'])
+
+        if 'DTE' in tradesData.columns and len(tradesData['DTE'].unique()):
+            dtesMapping = dict()
+            dtes = sorted(tradesData['DTE'].unique())
+            dteColumns = st.columns(len(dtes))
+            for index, dte in enumerate(dtes):
+                with dteColumns[index]:
+                    dtesMapping[dte] = st.checkbox(
+                        label=str(f'{dte} DTE'), value=True, key=f'{dte}DTE')
+
+            selectedDtes = [dte for dte,
+                            isSelected in dtesMapping.items() if isSelected]
+
+            tradesData = tradesData[tradesData['DTE'].isin(selectedDtes)]
+
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            instruments = st.multiselect(
+                'Instrument',
+                ['BANKNIFTY', 'NIFTY', 'FINNIFTY',
+                    'MIDCPNIFTY', 'SENSEX', 'BANKEX'],
+                ['BANKNIFTY', 'NIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'SENSEX', 'BANKEX'])
+
+            if instruments:
+                tradesData = tradesData[tradesData['Instrument'].str.startswith(
+                    tuple(instruments))]
+
+        with col2:
+            buySell = st.multiselect(
+                'Buy/Sell',
+                ['Buy', 'Sell'],
+                ['Buy', 'Sell'])
+
+            if buySell:
+                tradesData = tradesData[tradesData['Buy/Sell']
+                                        .str.startswith(tuple(buySell))]
+
+        with st.expander('Get Quantstats Report'):
+            result = st.button('Run')
+            if result:
+                pnls = tradesData['PnL']
+                returns = pnls / initialCapital
+                returns.index = pd.to_datetime(tradesData['Entry Date/Time'])
+                returns = returns.sort_index()
+                print(returns)
+                st.components.v1.html(quantstats_reports.html(returns, title='Tearsheet', compounded=False, output='tearsheet1.html'),
+                                      height=1000,
+                                      scrolling=True)
+                st.components.v1.html(quantstats_reports.html(returns, "^NSEI", title='Strategy vs Benchmark', compounded=False, output='tearsheet2.html'),
+                                      height=1000,
+                                      scrolling=True)
+
+        if selectedGroupCriteria is not None:
+            if selectedGroupCriteria == 'Date':
+                groupBy = tradesData.groupby('Date')
+                xAxisTitle = 'Date'
+                showStats(initialCapital, len(uploadedFiles),
+                          groupBy['PnL'].sum().reset_index())
+            elif selectedGroupCriteria == 'Day':
+                groupBy = tradesData.groupby(
+                    tradesData['Date'].dt.strftime('%A'))
+                xAxisTitle = 'Day'
+                showStats(initialCapital, len(uploadedFiles), tradesData)
+            else:
+                groupBy = None
+                xAxisTitle = selectedGroupCriteria
+                showStats(initialCapital, len(uploadedFiles), tradesData)
+
+            if groupBy is not None:
+                pnl = groupBy['PnL'].sum()
+                groupByDate = tradesData.groupby(
+                    'Date')['PnL'].sum().reset_index()
+                cumulativePnL = groupByDate['PnL'].cumsum()
+                cumulativePnL.index = groupByDate['Date']
+            else:
+                pnl = tradesData['PnL']
+                pnl.index = tradesData['Entry Date/Time']
+                cumulativePnL = tradesData['PnL'].cumsum()
+                cumulativePnL.index = tradesData['Entry Date/Time']
+                runningMaxPnL = cumulativePnL.cummax()
+
+            runningMaxPnL = cumulativePnL.cummax()
+            drawdown = cumulativePnL - runningMaxPnL
+            drawdown.index = cumulativePnL.index
+
+            color = ['green' if x > 0 else 'red' for x in pnl]
+            fig = go.Figure(
+                data=[go.Bar(x=pnl.index, y=pnl.values, marker={'color': color})])
+            fig.update_layout(title='PnL over time',
+                              xaxis_title=xAxisTitle, yaxis_title='PnL')
+            st.plotly_chart(fig, use_container_width=True)
+
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                fig = go.Figure(
+                    data=[go.Scatter(x=cumulativePnL.index, y=cumulativePnL)])
+                fig.update_layout(title='Cumulative PnL over time',
+                                  xaxis_title='Date', yaxis_title='Cumulative PnL')
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                fig = go.Figure(
+                    data=[go.Scatter(x=drawdown.index, y=drawdown)])
+                fig.update_layout(
+                    title='Drawdown', xaxis_title='Date', yaxis_title='Drawdown')
+                st.plotly_chart(fig, use_container_width=True)
+
+            # Split pnl data by year
+            print(pnl)
+            yearlyPnl = pnl.groupby(pnl.index.year)
+
+            # Iterate over each year and plot the heatmap
+            for year, data in yearlyPnl:
+                fig, _ = calplot.calplot(data, textfiller='-',
+                                         cmap=customCmap(),
+                                         vmin=-max(data.max(), abs(data.min())),
+                                         vmax=max(data.max(), abs(data.min())))
+                st.pyplot(fig=fig)
+
+            col1, col2 = st.columns([1, 1])
+            # with col1:
+            #     plotScatterMAE(tradesData)
+
+            # with col2:
+            #     plotScatterMFE(tradesData)
+
+        # with st.expander("Check dataframe"):
+        #     st.dataframe(tradesData, use_container_width=True)
+
+if __name__ == "__main__":
+    main()
