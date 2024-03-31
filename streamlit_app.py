@@ -320,8 +320,31 @@ def customCmap():
     return LinearSegmentedColormap.from_list('custom_map', [red, white, green], N=256)
 
 def main():
-    st.set_page_config(page_title="Trades Analyzer", layout="wide")
+    st.set_page_config(page_title="Backtest Analyzer", layout="wide")
     col1, col, col2 = st.columns([1, 8, 1])
+
+    with st.expander('How to USE??'):
+        st.info("Upload .csv in the following format: Date, PnL, Instrument, Buy/Sell")
+        
+        # Date	     PnL		Instrument	Buy/Sell
+        # 1/31/2024   0			BANKNIFTY	Sell
+
+        data = {
+                "Date": ["12/31/2023","2/26/2024","3/27/2024" ],
+                "PnL": [5000.63, -4500.85, 5045],
+                "Instrument": ["BANKNIFTY","BANKNIFTY","FINNIFTY"],
+                "Buy/Sell": ["Sell","Buy","Sell"]
+            }
+        df = pd.DataFrame(data)
+        st.table(df)
+
+        with open('sample.csv') as f:
+            st.download_button('Download SAMPLE CSV', f, "sample.csv") 
+
+        st.warning("You can Group by these SCRIPS: (BANKNIFTY, NIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX)") 
+        st.success("You can print to PDF from top right hamburger icon")
+        st.info("You can add multiple CSV files to aggregate strategies")
+
 
     with col:
         uploadedFiles = st.file_uploader(
@@ -459,6 +482,7 @@ def main():
                 cumulativePnL.index = tradesData['Entry Date/Time']
                 runningMaxPnL = cumulativePnL.cummax()
 
+            st.divider()
             st.title(" ")    
             with st.expander('Get Quantstats Report'):
                 result = st.button('Run')
@@ -475,6 +499,7 @@ def main():
                                         height=1000,
                                         scrolling=True)   
             st.title(" ")
+            st.divider()
 
             runningMaxPnL = cumulativePnL.cummax()
             drawdown = cumulativePnL - runningMaxPnL
@@ -523,6 +548,18 @@ def main():
 
         # with st.expander("Check dataframe"):
         #     st.dataframe(tradesData, use_container_width=True)
+        st.title(" ")
+        st.title(" ")
+        st.title(" ")
+        
+        st.info('Check out the Quantstats Report (Scroll ☝️☝️☝️)', icon='🧐') 
+        st.title(" ")
+        st.title(" ")
+        st.title(" ")
         st.toast('Check out the Quantstats Report', icon='🧐') 
+
+        with st.expander('What do these metrics mean??'):
+            st.info("***Disclaimer: ChatGPT copy-paste xD*** \n\n \nAverage Day Profit: The average profit earned per trading day during the period under consideration. It's calculated by summing up the profits of each trading day and dividing by the total number of trading days.\n\n\nMax Drawdown: The maximum peak-to-trough decline in the trading capital during the trading period. It quantifies the maximum loss experienced from the peak capital value.\n\n\nExpectancy: A statistical measure that quantifies the average amount of profit or loss expected per unit of risk. It's calculated as (Probability of Win * Average Win) - (Probability of Loss * Average Loss). It provides insight into the profitability of the trading strategy over the long term.\n\n\n Compound Annual Growth Rate (CAGR): CAGR is a measure of the annual growth rate of an investment over a specified time period, considering the effect of compounding. It provides a smooth representation of the average annual growth rate of an investment, regardless of any fluctuations in the market.\n\n\nSharpe Ratio: The Sharpe Ratio measures the risk-adjusted return of an investment or trading strategy. It's calculated by dividing the excess return of the investment (return above the risk-free rate) by the standard deviation of the investment's returns. A higher Sharpe Ratio indicates better risk-adjusted returns.\n\n\nSortino Ratio: Similar to the Sharpe Ratio, the Sortino Ratio measures the risk-adjusted return of an investment. However, it focuses only on the downside risk, considering only the standard deviation of negative returns. It is often preferred over the Sharpe Ratio for strategies where downside risk is a significant concern.\n\n\nOmega Ratio: The Omega Ratio evaluates the risk-return profile of an investment by comparing the probability-weighted average return of the investment to a target return or threshold. It provides a measure of the likelihood of achieving returns above a specified threshold.\n\n\nCalmar Ratio: The Calmar Ratio measures the risk-adjusted performance of an investment or trading strategy by comparing the average annual rate of return to the maximum drawdown experienced during a specified period. A higher Calmar Ratio indicates better risk-adjusted returns relative to drawdown.\n\n\nKurtosis: Kurtosis is a statistical measure that describes the distribution of returns around its mean in a probability distribution. In the context of trading, it indicates the degree of peakedness or flatness of a return distribution compared to a normal distribution. High kurtosis implies fat tails, meaning higher probabilities of extreme returns.\n\n\nKelly Criterion: The Kelly Criterion is a mathematical formula used to determine the optimal size of a series of bets or investments to maximize long-term wealth growth. It takes into account the probability of success and the payoff ratio of each bet or investment.\n\n\nRisk of Ruin: Risk of ruin is the probability of losing a significant portion of or the entire trading capital due to consecutive losses or a prolonged drawdown. It's an important metric for assessing the probability of financial ruin under a given trading strategy.\n\n\nValue at Risk (VaR): Value at Risk is a statistical measure that quantifies the potential loss of an investment or portfolio over a specified time horizon and at a given confidence level. It provides an estimate of the maximum potential loss that a portfolio may incur within a certain probability.")
+        
 if __name__ == "__main__":
     main()
