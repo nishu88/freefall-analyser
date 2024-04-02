@@ -493,11 +493,11 @@ def main():
                     returns = returns.sort_index()
                     print(returns)
                     st.components.v1.html(quantstats_reports.html(returns, title='Tearsheet', compounded=False, output='tearsheet1.html'),
-                                        height=1000)
-                                        # scrolling=True)
+                                        height=1000,
+                                        scrolling=True)
                     st.components.v1.html(quantstats_reports.html(returns, "^NSEI", title='Strategy vs Benchmark', compounded=False, output='tearsheet2.html'),
-                                        height=1000)
-                                        # scrolling=True)   
+                                        height=1000,
+                                        scrolling=True)   
             st.title(" ")
             st.divider()
 
