@@ -148,7 +148,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     box(col2, 'Loss% (Days)',
         f'{round(lossPercentage, 2)} ({losses})', color='red')
     box(col3, 'Avg Monthly Profit', '₹{:.2f}'.format(
-        formatINR(monthlyProfit)), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
+        monthlyProfit), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
     box(col4, 'Avg Profit On Win Days', '₹{:.2f}'.format(
         averageProfitOnWins), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%', initialCapital)
     box(col5, 'Avg Loss On Loss Days', '₹{:.2f}'.format(
@@ -223,7 +223,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
 
     col1, col2, col3 = st.columns(3, gap='small')
     box(col1, 'Max Drawdown (MDD)',
-        f'{mdd:.2f}', f'{(mdd/initialCapital)*100:.2f}%', color='red')
+        f'{formatINR(mdd):.2f}', f'{(mdd/initialCapital)*100:.2f}%', color='red')
     box(col2, 'MDD Days (Recovery Days)',
         f'{mddDays}', mddDateRange, color='red')
     box(col3, 'Return to MDD Ratio',
