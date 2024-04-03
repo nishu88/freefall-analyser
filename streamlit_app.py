@@ -122,14 +122,14 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     maxLoss = tradesData['PnL'].min()
 
     col1, col2, col3, col4, col5 = st.columns(5, gap='small')
-    box(col1, 'Initial Capital', f'₹{formatINR(initialCapital)}')
+    box(col1, 'Initial Capital', f'{formatINR(initialCapital)}')
     box(col2, 'Overall Profit/Loss',
         f'₹{formatINR(overallPnL)}', f'{round((overallPnL/initialCapital)*100, 2)}%')
-    box(col3, 'Average Day Profit', f'₹{formatINR(averageProfit)}',
+    box(col3, 'Average Day Profit', f'{formatINR(averageProfit)}',
         f'{round((averageProfit/initialCapital)*100, 2)}%', color='yellow')
-    box(col4, 'Max Profit', f'₹{formatINR(maxProfit)}',
+    box(col4, 'Max Profit', f'{formatINR(maxProfit)}',
         f'{round((maxProfit/initialCapital)*100, 2)}%')
-    box(col5, 'Max Loss', f'₹{formatINR(maxLoss)}',
+    box(col5, 'Max Loss', f'{formatINR(maxLoss)}',
         f'{round((maxLoss/initialCapital)*100, 2)}%', color='red')
     st.write('')
 
@@ -147,12 +147,12 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     box(col1, 'Win% (Days)', f'{round(winPercentage, 2)} ({wins})')
     box(col2, 'Loss% (Days)',
         f'{round(lossPercentage, 2)} ({losses})', color='red')
-    box(col3, 'Avg Monthly Profit', '₹{:.2f}'.format(
-        monthlyProfit), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
-    box(col4, 'Avg Profit On Win Days', '₹{:.2f}'.format(
-        averageProfitOnWins), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%', initialCapital)
-    box(col5, 'Avg Loss On Loss Days', '₹{:.2f}'.format(
-        averageLossOnLosses), f'{round((averageLossOnLosses/initialCapital)*100, 2)}%', color='red')
+    box(col3, 'Avg Monthly Profit', '{}'.format(
+        formatINR(monthlyProfit)), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
+    box(col4, 'Avg Profit On Win Days', '{}'.format(
+        formatINR(averageProfitOnWins)), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%', initialCapital)
+    box(col5, 'Avg Loss On Loss Days', '{}'.format(
+        formatINR(averageLossOnLosses)), f'{round((averageLossOnLosses/initialCapital)*100, 2)}%', color='red')
     st.write('')
 
     cumulativePnL = tradesData['PnL'].cumsum()
