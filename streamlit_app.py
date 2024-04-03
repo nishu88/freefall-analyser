@@ -122,14 +122,14 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     maxLoss = tradesData['PnL'].min()
 
     col1, col2, col3, col4, col5 = st.columns(5, gap='small')
-    box(col1, 'Initial Capital', f'₹{initialCapital}')
+    box(col1, 'Initial Capital', f'₹{formatINR(initialCapital)}')
     box(col2, 'Overall Profit/Loss',
-        f'₹{round(overallPnL, 2)}', f'{round((overallPnL/initialCapital)*100, 2)}%')
-    box(col3, 'Average Day Profit', f'₹{round(averageProfit, 2)}',
+        f'₹{formatINR(overallPnL)}', f'{round((overallPnL/initialCapital)*100, 2)}%')
+    box(col3, 'Average Day Profit', f'₹{formatINR(averageProfit)}',
         f'{round((averageProfit/initialCapital)*100, 2)}%', color='yellow')
-    box(col4, 'Max Profit', f'₹{round(maxProfit, 2)}',
+    box(col4, 'Max Profit', f'₹{formatINR(maxProfit)}',
         f'{round((maxProfit/initialCapital)*100, 2)}%')
-    box(col5, 'Max Loss', f'₹{round(maxLoss, 2)}',
+    box(col5, 'Max Loss', f'₹{formatINR(maxLoss)}',
         f'{round((maxLoss/initialCapital)*100, 2)}%', color='red')
     st.write('')
 
@@ -148,7 +148,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     box(col2, 'Loss% (Days)',
         f'{round(lossPercentage, 2)} ({losses})', color='red')
     box(col3, 'Avg Monthly Profit', '₹{:.2f}'.format(
-        monthlyProfit), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
+        formatINR(monthlyProfit)), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
     box(col4, 'Avg Profit On Win Days', '₹{:.2f}'.format(
         averageProfitOnWins), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%', initialCapital)
     box(col5, 'Avg Loss On Loss Days', '₹{:.2f}'.format(
@@ -318,6 +318,18 @@ def customCmap():
 
     # Create a custom color map using LinearSegmentedColormap
     return LinearSegmentedColormap.from_list('custom_map', [red, white, green], N=256)
+
+def formatINR(number):
+    number = float(number)
+    number = round(number,2)
+    is_negative = number < 0
+    number = abs(number)
+    s, *d = str(number).partition(".")
+    r = ",".join([s[x-2:x] for x in range(-3, -len(s), -2)][::-1] + [s[-3:]])
+    value = "".join([r] + d)
+    if is_negative:
+       value = '-' + value
+    return '₹'+ value
 
 def main():
     st.set_page_config(page_title="Trades Analyzer", layout="wide")
