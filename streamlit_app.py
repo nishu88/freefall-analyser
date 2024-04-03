@@ -227,7 +227,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     box(col2, 'MDD Days (Recovery Days)',
         f'{mddDays}', mddDateRange, color='red')
     box(col3, 'Return to MDD Ratio',
-        'Requires minimum 1Yr data' if returnToMddRatio is not None else f'{returnToMddRatio:.2f}')
+        'Requires minimum 1Yr data' if returnToMddRatio is None else f'{returnToMddRatio:.2f}')
     st.write('')
 
     maxWinningStreak, maxLosingStreak = GetStreaks(tradesData)
