@@ -223,7 +223,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
 
     col1, col2, col3 = st.columns(3, gap='small')
     box(col1, 'Max Drawdown (MDD)',
-        f'{formatINR(mdd):.2f}', f'{(mdd/initialCapital)*100:.2f}%', color='red')
+        f'{formatINR(mdd)}', f'{(mdd/initialCapital)*100:.2f}%', color='red')
     box(col2, 'MDD Days (Recovery Days)',
         f'{mddDays}', mddDateRange, color='red')
     box(col3, 'Return to MDD Ratio',
