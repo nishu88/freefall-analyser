@@ -124,7 +124,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     col1, col2, col3, col4, col5 = st.columns(5, gap='small')
     box(col1, 'Initial Capital', f'{formatINR(initialCapital)}')
     box(col2, 'Overall Profit/Loss',
-        f'₹{formatINR(overallPnL)}', f'{round((overallPnL/initialCapital)*100, 2)}%')
+        f'{formatINR(overallPnL)}', f'{round((overallPnL/initialCapital)*100, 2)}%')
     box(col3, 'Average Day Profit', f'{formatINR(averageProfit)}',
         f'{round((averageProfit/initialCapital)*100, 2)}%', color='yellow')
     box(col4, 'Max Profit', f'{formatINR(maxProfit)}',
