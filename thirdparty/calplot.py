@@ -207,10 +207,11 @@ def yearplot(data, year=None, how='sum',
     for month, week_start in zip(range(1, 13), ax.get_xticks()):
         profit = round(monthly_sum[month - 1], 2)
         color = '#10B981' if profit >= 0 else '#EF4444'  # Modern green/red
-        text = ax.text(week_start, -0.8, f'₹{profit:,.0f}',
-                       color=color, ha='center', va='top', fontsize=9, fontname='Helvetica',
+        # Rotate text and position below the heatmap to prevent overlapping
+        text = ax.text(week_start, -1.5, f'₹{profit:,.0f}',
+                       color=color, ha='center', va='top', fontsize=7, fontname='Helvetica',
                        fontweight='bold')
-        text.set_path_effects([path_effects.withStroke(linewidth=2.5, foreground='white')])
+        text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='white')])
 
     # Text in mesh grid if format is specified.
     if textformat is not None:
@@ -321,7 +322,7 @@ def calplot(data, how='sum',
         colorbar = data.nunique() > 1
 
     if figsize is None:
-        figsize = (10+(colorbar*2.5), 1.7*len(years))
+        figsize = (14+(colorbar*2.5), 2.2*len(years))
 
     fig, axes = plt.subplots(nrows=len(years), ncols=1, squeeze=False,
                              figsize=figsize,
@@ -368,6 +369,8 @@ def calplot(data, how='sum',
     if tight_layout:
         plt.tight_layout()
         stitle_kws.update({'y': 0.98})
+        # Add extra space for rotated month labels
+        plt.subplots_adjust(bottom=0.15)
 
     if colorbar:
         if tight_layout:

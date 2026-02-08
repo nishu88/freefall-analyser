@@ -222,7 +222,7 @@ def html(
         savefig={"fname": figfile, "format": figfmt},
         show=False,
         ylabel=False,
-        cumulative=compounded,
+        compound=compounded,
         prepare_returns=False,
     )
     tpl = tpl.replace("{{returns}}", _embed_figure(figfile, figfmt))
@@ -237,7 +237,7 @@ def html(
         savefig={"fname": figfile, "format": figfmt},
         show=False,
         ylabel=False,
-        cumulative=compounded,
+        compound=compounded,
         prepare_returns=False,
     )
     tpl = tpl.replace("{{log_returns}}", _embed_figure(figfile, figfmt))
@@ -254,7 +254,7 @@ def html(
             savefig={"fname": figfile, "format": figfmt},
             show=False,
             ylabel=False,
-            cumulative=compounded,
+            compound=compounded,
             prepare_returns=False,
         )
         tpl = tpl.replace("{{vol_returns}}", _embed_figure(figfile, figfmt))
