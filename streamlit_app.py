@@ -52,6 +52,9 @@ def GetExpectancy(tradesData):
     winningTradesPct = winningTradesCount / totalTrades
     losingTradesPct = losingTradesCount / totalTrades
 
+    if losingTradesAvg == 0:
+        return 0
+    
     expectancy = (abs(winningTradesAvg / losingTradesAvg)
                   * winningTradesPct) - losingTradesPct
 
@@ -150,7 +153,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     box(col3, 'Avg Monthly Profit', '{}'.format(
         formatINR(monthlyProfit)), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
     box(col4, 'Avg Profit On Win Days', '{}'.format(
-        formatINR(averageProfitOnWins)), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%', initialCapital)
+        formatINR(averageProfitOnWins)), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%')
     box(col5, 'Avg Loss On Loss Days', '{}'.format(
         formatINR(averageLossOnLosses)), f'{round((averageLossOnLosses/initialCapital)*100, 2)}%', color='red')
     st.write('')
@@ -219,7 +222,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     # Calculate the Return to MDD ratio
     averageYearlyProfit = tradesData.set_index(
         'Date')['PnL'].cumsum().resample('Y').last().diff().mean()
-    returnToMddRatio = abs(averageYearlyProfit / mdd)
+    returnToMddRatio = abs(averageYearlyProfit / mdd) if mdd != 0 else None
 
     col1, col2, col3 = st.columns(3, gap='small')
     box(col1, 'Max Drawdown (MDD)',
@@ -350,8 +353,12 @@ def main():
         df = pd.DataFrame(data)
         st.table(df)
 
-        with open('sample.csv') as f:
-            st.download_button('Download SAMPLE CSV', f, "sample.csv") 
+        try:
+            with open('sample.csv', 'r') as f:
+                csv_content = f.read()
+            st.download_button('Download SAMPLE CSV', csv_content, "sample.csv")
+        except FileNotFoundError:
+            st.warning("Sample CSV file not found") 
 
         st.warning("You can Group by these SCRIPS: (BANKNIFTY, NIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX)") 
         st.success("You can print to PDF from top right hamburger icon")
@@ -541,15 +548,20 @@ def main():
 
             # Split pnl data by year
             print(pnl)
-            yearlyPnl = pnl.groupby(pnl.index.year)
-
-            # Iterate over each year and plot the heatmap
-            for year, data in yearlyPnl:
-                fig, _ = calplot.calplot(data, textfiller='-',
-                                         cmap=customCmap(),
-                                         vmin=-max(data.max(), abs(data.min())),
-                                         vmax=max(data.max(), abs(data.min())))
-                st.pyplot(fig=fig)
+            try:
+                yearlyPnl = pnl.groupby(pnl.index.year)
+            except AttributeError:
+                st.warning("Cannot create yearly heatmap: Index is not datetime type")
+                yearlyPnl = None
+            
+            if yearlyPnl is not None:
+                # Iterate over each year and plot the heatmap
+                for year, data in yearlyPnl:
+                    fig, _ = calplot.calplot(data, textfiller='-',
+                                             cmap=customCmap(),
+                                             vmin=-max(data.max(), abs(data.min())),
+                                             vmax=max(data.max(), abs(data.min())))
+                    st.pyplot(fig=fig)
 
             col1, col2 = st.columns([1, 1])
             # with col1:
