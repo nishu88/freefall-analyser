@@ -11,14 +11,14 @@ from thirdparty import calplot, quantstats_reports
 
 # Flexible date parser to support multiple date formats
 def parse_date_flexible(date_str):
-    """Parse date string supporting DD-MM-YYYY, DD/MM/YYYY, M/D/YYYY formats"""
+    """Parse date string supporting DD-MM-YYYY and M/D/YYYY formats"""
     if pd.isna(date_str):
         return pd.NaT
     
     date_str = str(date_str).strip()
     
-    # Try formats in order: DD-MM-YYYY, DD/MM/YYYY, M/D/YYYY, M/D/YY
-    formats = ['%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y', '%m/%d/%y']
+    # Try formats in order: DD-MM-YYYY, M/D/YYYY
+    formats = ['%d-%m-%Y', '%m/%d/%Y']
     for fmt in formats:
         try:
             return pd.to_datetime(date_str, format=fmt)
