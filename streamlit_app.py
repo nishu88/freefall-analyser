@@ -362,7 +362,7 @@ def plotScatterMAE(tradesData):
         height=450,
         showlegend=False
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 
 def plotScatterMFE(tradesData):
@@ -411,7 +411,7 @@ def plotScatterMFE(tradesData):
         height=450,
         showlegend=False
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 
 def customCmap():
@@ -468,7 +468,7 @@ def main():
 
     with col:
         uploadedFiles = st.file_uploader(
-            "",
+            "Upload Trade CSV Files",
             key="1",
             help="To activate 'wide mode', go to the hamburger menu > Settings > turn on 'wide mode'",
             accept_multiple_files=True
@@ -651,7 +651,7 @@ def main():
                 margin=dict(l=60, r=40, t=80, b=60),
                 height=450
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             col1, col2 = st.columns([1, 1])
             with col1:
@@ -671,7 +671,7 @@ def main():
                     height=420,
                     showlegend=False
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
             with col2:
                 fig = go.Figure(
@@ -690,7 +690,7 @@ def main():
                     height=420,
                     showlegend=False
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
             # Split pnl data by year
             print(pnl)
