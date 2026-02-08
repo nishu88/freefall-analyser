@@ -9,6 +9,29 @@ from matplotlib.colors import LinearSegmentedColormap
 from thirdparty import calplot, quantstats_reports
 
 
+# Flexible date parser to support multiple date formats
+def parse_date_flexible(date_str):
+    """Parse date string supporting DD-MM-YYYY, DD/MM/YYYY, M/D/YYYY formats"""
+    if pd.isna(date_str):
+        return pd.NaT
+    
+    date_str = str(date_str).strip()
+    
+    # Try formats in order: DD-MM-YYYY, DD/MM/YYYY, M/D/YYYY, M/D/YY
+    formats = ['%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y', '%m/%d/%y']
+    for fmt in formats:
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except (ValueError, TypeError):
+            continue
+    
+    # If all formats fail, let pandas try to infer
+    try:
+        return pd.to_datetime(date_str)
+    except:
+        return pd.NaT
+
+
 # Calculate Winning and Losing Streaks
 
 
@@ -491,14 +514,20 @@ def main():
             dataframes.append(df)
 
         tradesData = pd.concat(dataframes)
+        
+        # Filter out zero PnL trades completely
+        tradesData = tradesData[tradesData['PnL'] != 0].reset_index(drop=True)
+        
+        if tradesData.empty:
+            st.warning("No trades with non-zero PnL found in uploaded files.")
+            st.stop()
+        
         tradesData.sort_values(by="Entry Date/Time", inplace=True)
         tradesData.reset_index(drop=True, inplace=True)
 
-        tradesData["Entry Date/Time"] = pd.to_datetime(
-            tradesData["Entry Date/Time"])
-        tradesData["Exit Date/Time"] = pd.to_datetime(
-            tradesData["Exit Date/Time"])
-        tradesData["Date"] = pd.to_datetime(tradesData["Date"])
+        tradesData["Entry Date/Time"] = tradesData["Entry Date/Time"].astype(str).apply(parse_date_flexible)
+        tradesData["Exit Date/Time"] = tradesData["Exit Date/Time"].astype(str).apply(parse_date_flexible)
+        tradesData["Date"] = tradesData["Date"].astype(str).apply(parse_date_flexible)
 
         groupCol, initialCapitalCol, fromDateCol, toDateCol, slippageCol = st.columns([
             1, 1, 2, 2, 2])
