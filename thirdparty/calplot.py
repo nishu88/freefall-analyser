@@ -209,7 +209,7 @@ def yearplot(data, year=None, how='sum',
         color = '#10B981' if profit >= 0 else '#EF4444'  # Modern green/red
         # Rotate text and position below the heatmap to prevent overlapping
         text = ax.text(week_start, -1.5, f'₹{profit:,.0f}',
-                       color=color, ha='center', va='top', fontsize=7, fontname='Helvetica',
+                       color=color, ha='center', va='top', fontsize=9, fontname='Helvetica',
                        fontweight='bold')
         text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='white')])
 
