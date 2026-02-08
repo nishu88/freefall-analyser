@@ -123,45 +123,63 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     averageProfit = tradesData['PnL'].mean()
     maxProfit = tradesData['PnL'].max()
     maxLoss = tradesData['PnL'].min()
+    
+    # Advanced metrics
+    wins = tradesData['PnL'][tradesData['PnL'] > 0].count()
+    losses = tradesData['PnL'][tradesData['PnL'] < 0].count()
+    breaks = tradesData['PnL'][tradesData['PnL'] == 0].count()
+    totalCount = tradesData['PnL'].count()
+    winPercentage = (wins / totalCount) * 100 if totalCount > 0 else 0
+    lossPercentage = (losses / totalCount) * 100 if totalCount > 0 else 0
+    
+    # Profit factor calculation
+    totalWins = tradesData[tradesData['PnL'] > 0]['PnL'].sum()
+    totalLosses = abs(tradesData[tradesData['PnL'] < 0]['PnL'].sum())
+    profitFactor = totalWins / totalLosses if totalLosses != 0 else 0
+    
+    # Average values
+    averageProfitOnWins = tradesData['PnL'][tradesData['PnL'] > 0].mean()
+    averageLossOnLosses = tradesData['PnL'][tradesData['PnL'] < 0].mean()
+    
+    # Monthly analysis
+    monthlyProfit = tradesData.resample('M', on='Date').sum(numeric_only=True)['PnL'].mean()
+    monthlyCount = len(tradesData.groupby(tradesData['Date'].dt.to_period('M')))
+    profitableMonths = len(tradesData.resample('M', on='Date').sum(numeric_only=True)[tradesData.resample('M', on='Date').sum(numeric_only=True)['PnL'] > 0])
+    
+    # ROI and CAGR
+    roi = (overallPnL / initialCapital) * 100
+    days_traded = (tradesData['Date'].max() - tradesData['Date'].min()).days
+    years_traded = days_traded / 365.25 if days_traded > 0 else 0
+    cagr = ((initialCapital + overallPnL) / initialCapital) ** (1 / years_traded) - 1 if years_traded > 0 else 0
 
+    # Key metrics row 1
     col1, col2, col3, col4, col5 = st.columns(5, gap='small')
     box(col1, 'Initial Capital', f'{formatINR(initialCapital)}')
     box(col2, 'Overall Profit/Loss',
-        f'{formatINR(overallPnL)}', f'{round((overallPnL/initialCapital)*100, 2)}%')
-    box(col3, 'Average Day Profit', f'{formatINR(averageProfit)}',
-        f'{round((averageProfit/initialCapital)*100, 2)}%', color='yellow')
-    box(col4, 'Max Profit', f'{formatINR(maxProfit)}',
-        f'{round((maxProfit/initialCapital)*100, 2)}%')
-    box(col5, 'Max Loss', f'{formatINR(maxLoss)}',
-        f'{round((maxLoss/initialCapital)*100, 2)}%', color='red')
+        f'{formatINR(overallPnL)}', f'{roi:.2f}%')
+    box(col3, 'CAGR', f'{cagr*100:.2f}%',
+        color='yellow')
+    box(col4, 'Profit Factor', f'{profitFactor:.2f}')
+    box(col5, 'Total Trades', f'{totalCount}')
     st.write('')
 
-    wins = tradesData['PnL'][tradesData['PnL'] > 0].count()
-    losses = tradesData['PnL'][tradesData['PnL'] < 0].count()
-    totalCount = tradesData['PnL'].count()
-    winPercentage = (wins / totalCount) * 100
-    lossPercentage = (losses / totalCount) * 100
-    monthlyProfit = tradesData.resample(
-        'M', on='Date').sum(numeric_only=True)['PnL'].mean()
-    averageProfitOnWins = tradesData['PnL'][tradesData['PnL'] > 0].mean()
-    averageLossOnLosses = tradesData['PnL'][tradesData['PnL'] < 0].mean()
-
+    # Key metrics row 2
     col1, col2, col3, col4, col5 = st.columns(5, gap='small')
-    box(col1, 'Win% (Days)', f'{round(winPercentage, 2)} ({wins})')
-    box(col2, 'Loss% (Days)',
-        f'{round(lossPercentage, 2)} ({losses})', color='red')
-    box(col3, 'Avg Monthly Profit', '{}'.format(
-        formatINR(monthlyProfit)), f'{round((monthlyProfit/initialCapital)*100, 2)}%', color='yellow')
-    box(col4, 'Avg Profit On Win Days', '{}'.format(
-        formatINR(averageProfitOnWins)), f'{round((averageProfitOnWins/initialCapital)*100, 2)}%')
-    box(col5, 'Avg Loss On Loss Days', '{}'.format(
-        formatINR(averageLossOnLosses)), f'{round((averageLossOnLosses/initialCapital)*100, 2)}%', color='red')
+    box(col1, 'Win Rate', f'{winPercentage:.2f}% ({wins})')
+    box(col2, 'Loss Rate',
+        f'{lossPercentage:.2f}% ({losses})', color='red')
+    box(col3, 'Break Even', f'{(breaks/totalCount)*100:.2f}% ({breaks})',
+        color='yellow')
+    box(col4, 'Avg Win', f'{formatINR(averageProfitOnWins)}')
+    box(col5, 'Avg Loss', f'{formatINR(averageLossOnLosses)}', color='red')
     st.write('')
 
+    # Drawdown analysis
     cumulativePnL = tradesData['PnL'].cumsum()
     runningMaxPnL = cumulativePnL.cummax()
-    drawdown = cumulativePnL - runningMaxPnL
-    mdd = drawdown.min()
+    drawdown = runningMaxPnL - cumulativePnL
+    mdd = drawdown.max()
+    mddPercent = (mdd / initialCapital) * 100
 
     # Calculate drawdown durations and keep track of start and end dates
     drawdown_durations = []
@@ -170,12 +188,12 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
 
     prev_drawdown_idx = None
     for idx, pnl in enumerate(drawdown):
-        if pnl < 0:
+        if pnl > 0:
             if prev_drawdown_idx is None:
                 prev_drawdown_idx = idx
         elif prev_drawdown_idx is not None:
-            drawdown_start_date = tradesData['Date'][prev_drawdown_idx]
-            drawdown_end_date = tradesData['Date'][idx - 1]
+            drawdown_start_date = tradesData['Date'].iloc[prev_drawdown_idx]
+            drawdown_end_date = tradesData['Date'].iloc[idx - 1]
             drawdown_duration = (drawdown_end_date -
                                  drawdown_start_date).days + 1
             drawdown_durations.append(drawdown_duration)
@@ -185,8 +203,8 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
 
     # Check if the last trade is still in a drawdown
     if prev_drawdown_idx is not None:
-        drawdown_start_date = tradesData['Date'][prev_drawdown_idx]
-        drawdown_end_date = tradesData['Date'][len(drawdown) - 1]
+        drawdown_start_date = tradesData['Date'].iloc[prev_drawdown_idx]
+        drawdown_end_date = tradesData['Date'].iloc[len(drawdown) - 1]
         drawdown_duration = (drawdown_end_date -
                             drawdown_start_date).days + 1
         drawdown_durations.append(drawdown_duration)
@@ -224,24 +242,77 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
         'Date')['PnL'].cumsum().resample('Y').last().diff().mean()
     returnToMddRatio = abs(averageYearlyProfit / mdd) if mdd != 0 else None
 
-    col1, col2, col3 = st.columns(3, gap='small')
-    box(col1, 'Max Drawdown (MDD)',
-        f'{formatINR(mdd)}', f'{(mdd/initialCapital)*100:.2f}%', color='red')
-    box(col2, 'MDD Days (Recovery Days)',
-        f'{mddDays}', mddDateRange, color='red')
-    box(col3, 'Return to MDD Ratio',
-        'Requires minimum 1Yr data' if returnToMddRatio is None else f'{returnToMddRatio:.2f}')
+    # Recovery factor
+    recoveryFactor = overallPnL / mdd if mdd > 0 else 0
+
+    # Risk-Adjusted Metrics row
+    col1, col2, col3, col4 = st.columns(4, gap='small')
+    box(col1, 'Max Drawdown', f'{formatINR(mdd)}',
+        f'{mddPercent:.2f}%', color='red')
+    box(col2, 'MDD Days', f'{mddDays}',
+        mddDateRange, color='red')
+    box(col3, 'Recovery Factor', f'{recoveryFactor:.2f}')
+    box(col4, 'Return/MDD', 
+        'Requires 1Y+' if returnToMddRatio is None else f'{returnToMddRatio:.2f}')
     st.write('')
 
+    # Trading Statistics
     maxWinningStreak, maxLosingStreak = GetStreaks(tradesData)
     expectancy = GetExpectancy(tradesData)
 
     col1, col2, col3, col4 = st.columns(4, gap='small')
-    box(col1, 'Number of Strategies', f'{numOfFiles}')
-    box(col2, 'Max Winning Streak', f'{maxWinningStreak}')
-    box(col3, 'Max Losing Streak',
+    box(col1, 'Max Win Streak', f'{maxWinningStreak}')
+    box(col2, 'Max Loss Streak',
         f'{maxLosingStreak}', color='red')
-    box(col4, 'Expectancy', f'{expectancy:.2f}')
+    box(col3, 'Expectancy', f'{expectancy:.2f}')
+    box(col4, 'Strategies', f'{numOfFiles}')
+    st.write('')
+    
+    # Monthly Performance Table
+    with st.expander('📊 Monthly Performance Details', expanded=False):
+        monthly_data = tradesData.set_index('Date').resample('M')['PnL'].agg(['sum', 'count', 'mean'])
+        monthly_data.columns = ['Total PnL', 'Trades', 'Avg Trade']
+        monthly_data.index = monthly_data.index.strftime('%Y-%m')
+        
+        # Add formatting
+        display_monthly = monthly_data.copy()
+        display_monthly['Total PnL'] = display_monthly['Total PnL'].apply(lambda x: f'{formatINR(x)}')
+        display_monthly['Avg Trade'] = display_monthly['Avg Trade'].apply(lambda x: f'{formatINR(x)}')
+        display_monthly['Trades'] = display_monthly['Trades'].astype(int)
+        
+        st.dataframe(display_monthly.style.highlight_max(axis=0, color='#90EE90').highlight_min(axis=0, color='#FFB6C6'), use_container_width=True)
+    
+    # Additional Metrics Table
+    with st.expander('📈 Advanced Metrics', expanded=False):
+        metrics_dict = {
+            'Metric': [
+                'ROI',
+                'Days Traded',
+                'Avg Daily Profit',
+                'Std Deviation',
+                'Sharpe Ratio (approx)',
+                'Profit/Win Ratio',
+                'Loss/Win Ratio',
+                'Consecutive Wins/Losses',
+                'Profitable Months',
+                'Average Monthly Profit'
+            ],
+            'Value': [
+                f'{roi:.2f}%',
+                f'{days_traded} days',
+                f'{formatINR(averageProfit)}',
+                f'{formatINR(tradesData["PnL"].std())}',
+                f'{(averageProfit / tradesData["PnL"].std()) * np.sqrt(252):.2f}' if tradesData["PnL"].std() > 0 else 'N/A',
+                f'{abs(averageProfitOnWins / averageLossOnLosses):.2f}x' if averageLossOnLosses != 0 else 'N/A',
+                f'{abs(averageLossOnLosses / averageProfitOnWins):.2f}x' if averageProfitOnWins != 0 else 'N/A',
+                f'{maxWinningStreak} / {maxLosingStreak}',
+                f'{profitableMonths}/{monthlyCount} months',
+                f'{formatINR(monthlyProfit)}'
+            ]
+        }
+        metrics_df = pd.DataFrame(metrics_dict)
+        st.dataframe(metrics_df, use_container_width=True, hide_index=True)
+    
     st.write('')
 
 
@@ -269,12 +340,27 @@ def plotScatterMAE(tradesData):
         y=abs(pnl),
         mode='markers',
         name='MAE',
-        marker=dict(color=np.where(pnl < 0, 'red', 'green'))
+        marker=dict(
+            color=np.where(pnl < 0, '#EF4444', '#10B981'),
+            size=8,
+            opacity=0.7,
+            line=dict(width=0.5, color='rgba(100,100,100,0.3)')
+        ),
+        hovertemplate='<b>MAE: ₹%{x:,.2f}</b><br>PnL: ₹%{y:,.2f}<extra></extra>'
     ))
     fig.update_layout(
-        title='MAE vs PnL',
-        xaxis_title='MAE',
-        yaxis_title='PnL'
+        title=dict(text='<b>MAE vs PnL</b>', x=0.5, xanchor='center', font=dict(size=16)),
+        xaxis_title='MAE (₹)',
+        yaxis_title='PnL (₹)',
+        hovermode='closest',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='white',
+        font=dict(family='Arial, sans-serif', size=11),
+        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=False),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=False),
+        margin=dict(l=60, r=40, t=70, b=60),
+        height=450,
+        showlegend=False
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -303,12 +389,27 @@ def plotScatterMFE(tradesData):
         y=abs(pnl),
         mode='markers',
         name='MFE',
-        marker=dict(color=np.where(pnl < 0, 'red', 'green'))
+        marker=dict(
+            color=np.where(pnl < 0, '#EF4444', '#10B981'),
+            size=8,
+            opacity=0.7,
+            line=dict(width=0.5, color='rgba(100,100,100,0.3)')
+        ),
+        hovertemplate='<b>MFE: ₹%{x:,.2f}</b><br>PnL: ₹%{y:,.2f}<extra></extra>'
     ))
     fig.update_layout(
-        title='MFE vs PnL',
-        xaxis_title='MFE',
-        yaxis_title='PnL'
+        title=dict(text='<b>MFE vs PnL</b>', x=0.5, xanchor='center', font=dict(size=16)),
+        xaxis_title='MFE (₹)',
+        yaxis_title='PnL (₹)',
+        hovermode='closest',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='white',
+        font=dict(family='Arial, sans-serif', size=11),
+        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=False),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=False),
+        margin=dict(l=60, r=40, t=70, b=60),
+        height=450,
+        showlegend=False
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -480,7 +581,7 @@ def main():
                           groupBy['PnL'].sum().reset_index())
             elif selectedGroupCriteria == 'Day':
                 groupBy = tradesData.groupby(
-                    tradesData['Date'].dt.strftime('%A'))
+                    tradesData['Date'].dt.day_name())
                 xAxisTitle = 'Day'
                 showStats(initialCapital, len(uploadedFiles), tradesData)
             else:
@@ -490,6 +591,10 @@ def main():
 
             if groupBy is not None:
                 pnl = groupBy['PnL'].sum()
+                # Sort by day of week if grouping by Day
+                if selectedGroupCriteria == 'Day':
+                    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                    pnl = pnl.reindex([d for d in day_order if d in pnl.index])
                 groupByDate = tradesData.groupby(
                     'Date')['PnL'].sum().reset_index()
                 cumulativePnL = groupByDate['PnL'].cumsum()
@@ -506,44 +611,85 @@ def main():
             with st.expander('Get Quantstats Report'):
                 result = st.button('Run')
                 if result:
-                    pnls = tradesData['PnL']
-                    returns = pnls / initialCapital
-                    returns.index = pd.to_datetime(tradesData['Entry Date/Time'])
-                    returns = returns.sort_index()
-                    print(returns)
-                    st.components.v1.html(quantstats_reports.html(returns, title='Tearsheet', compounded=False, output='tearsheet1.html'),
-                                        height=1000,
-                                        scrolling=True)
-                    st.components.v1.html(quantstats_reports.html(returns, "^NSEI", title='Strategy vs Benchmark', compounded=False, output='tearsheet2.html'),
-                                        height=1000,
-                                        scrolling=True)   
+                    try:
+                        pnls = tradesData['PnL']
+                        returns = pnls / initialCapital
+                        returns.index = pd.to_datetime(tradesData['Entry Date/Time'])
+                        returns = returns.sort_index()
+                        print(returns)
+                        st.components.v1.html(quantstats_reports.html(returns, title='Tearsheet', compounded=False, output='tearsheet1.html'),
+                                            height=1000,
+                                            scrolling=True)
+                        try:
+                            st.components.v1.html(quantstats_reports.html(returns, "^NSEI", title='Strategy vs Benchmark', compounded=False, output='tearsheet2.html'),
+                                                height=1000,
+                                                scrolling=True)
+                        except Exception as e:
+                            st.warning("Could not generate benchmark comparison: " + str(e))
+                    except Exception as e:
+                        st.error(f"Error generating Quantstats report: {str(e)}")   
             st.title(" ")
             st.divider()
 
             runningMaxPnL = cumulativePnL.cummax()
-            drawdown = cumulativePnL - runningMaxPnL
+            drawdown = runningMaxPnL - cumulativePnL
             drawdown.index = cumulativePnL.index
 
-            color = ['green' if x > 0 else 'red' for x in pnl]
+            color = ['#10B981' if x > 0 else '#EF4444' for x in pnl]
             fig = go.Figure(
-                data=[go.Bar(x=pnl.index, y=pnl.values, marker={'color': color})])
-            fig.update_layout(title='PnL over time',
-                              xaxis_title=xAxisTitle, yaxis_title='PnL')
+                data=[go.Bar(x=pnl.index, y=pnl.values, marker=dict(color=color, line=dict(width=0)), hovertemplate='<b>%{x}</b><br>PnL: ₹%{y:,.2f}<extra></extra>')])
+            fig.update_layout(
+                title=dict(text='<b>PnL over Time</b>', x=0.5, xanchor='center', font=dict(size=18)),
+                xaxis_title=xAxisTitle,
+                yaxis_title='PnL (₹)',
+                hovermode='x unified',
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='white',
+                font=dict(family='Arial, sans-serif', size=11),
+                xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=False),
+                yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=True, zerolinewidth=1, zerolinecolor='rgba(100,100,100,0.3)'),
+                margin=dict(l=60, r=40, t=80, b=60),
+                height=450
+            )
             st.plotly_chart(fig, use_container_width=True)
 
             col1, col2 = st.columns([1, 1])
             with col1:
                 fig = go.Figure(
-                    data=[go.Scatter(x=cumulativePnL.index, y=cumulativePnL)])
-                fig.update_layout(title='Cumulative PnL over time',
-                                  xaxis_title='Date', yaxis_title='Cumulative PnL')
+                    data=[go.Scatter(x=cumulativePnL.index, y=cumulativePnL, fill='tozeroy', mode='lines', name='Cumulative PnL', line=dict(color='#3B82F6', width=3), fillcolor='rgba(59, 130, 246, 0.1)', hovertemplate='<b>%{x}</b><br>Cumulative PnL: ₹%{y:,.2f}<extra></extra>')])
+                fig.update_layout(
+                    title=dict(text='<b>Cumulative PnL over Time</b>', x=0.5, xanchor='center', font=dict(size=16)),
+                    xaxis_title='Date',
+                    yaxis_title='Cumulative PnL (₹)',
+                    hovermode='x unified',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='white',
+                    font=dict(family='Arial, sans-serif', size=10),
+                    xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=False),
+                    yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=True, zerolinewidth=1, zerolinecolor='rgba(100,100,100,0.3)'),
+                    margin=dict(l=60, r=40, t=70, b=50),
+                    height=420,
+                    showlegend=False
+                )
                 st.plotly_chart(fig, use_container_width=True)
 
             with col2:
                 fig = go.Figure(
-                    data=[go.Scatter(x=drawdown.index, y=drawdown)])
+                    data=[go.Scatter(x=drawdown.index, y=drawdown, fill='tozeroy', mode='lines', name='Drawdown', line=dict(color='#F59E0B', width=3), fillcolor='rgba(245, 158, 11, 0.1)', hovertemplate='<b>%{x}</b><br>Drawdown: ₹%{y:,.2f}<extra></extra>')])
                 fig.update_layout(
-                    title='Drawdown', xaxis_title='Date', yaxis_title='Drawdown')
+                    title=dict(text='<b>Drawdown</b>', x=0.5, xanchor='center', font=dict(size=16)),
+                    xaxis_title='Date',
+                    yaxis_title='Drawdown (₹)',
+                    hovermode='x unified',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='white',
+                    font=dict(family='Arial, sans-serif', size=10),
+                    xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=False),
+                    yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.2)', zeroline=True, zerolinewidth=1, zerolinecolor='rgba(100,100,100,0.3)'),
+                    margin=dict(l=60, r=40, t=70, b=50),
+                    height=420,
+                    showlegend=False
+                )
                 st.plotly_chart(fig, use_container_width=True)
 
             # Split pnl data by year

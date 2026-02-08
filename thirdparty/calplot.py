@@ -194,22 +194,23 @@ def yearplot(data, year=None, how='sum',
     ax.set_xticks([by_day.loc[pd.Timestamp(
                    datetime.date(year, i + 1, monthlabeloffset))].week
                    for i in monthticks])
-    ax.set_xticklabels([monthlabels[i] for i in monthticks])
+    ax.set_xticklabels([monthlabels[i] for i in monthticks], fontsize=11, fontweight='bold', fontname='Helvetica')
 
     ax.set_ylabel('')
     ax.yaxis.set_ticks_position('right')
     ax.set_yticks([6 - i + 0.5 for i in dayticks])
     ax.set_yticklabels([daylabels[i] for i in dayticks], rotation='horizontal',
-                       va='center')
+                       va='center', fontsize=10, fontweight='500', fontname='Helvetica')
 
+    # Improved monthly summary display
     monthly_sum = by_day.groupby(pd.Grouper(freq='M')).sum()['data']
     for month, week_start in zip(range(1, 13), ax.get_xticks()):
         profit = round(monthly_sum[month - 1], 2)
-        text = ax.text(week_start, 0, profit,
-                       color='green' if profit >= 0 else 'red', ha='center', va='bottom', fontsize=7, fontname='Open Sans',
+        color = '#10B981' if profit >= 0 else '#EF4444'  # Modern green/red
+        text = ax.text(week_start, -0.8, f'₹{profit:,.0f}',
+                       color=color, ha='center', va='top', fontsize=9, fontname='Helvetica',
                        fontweight='bold')
-        text.set_path_effects(
-            [path_effects.withStroke(linewidth=2, foreground='white')])
+        text.set_path_effects([path_effects.withStroke(linewidth=2.5, foreground='white')])
 
     # Text in mesh grid if format is specified.
     if textformat is not None:
@@ -222,8 +223,9 @@ def yearplot(data, year=None, how='sum',
                         content = textfiller
                 else:
                     content = textformat.format(masked)
-                ax.text(x + 0.5, y + 0.5, content, color=textcolor,
-                         ha='center', va='center')
+                if content:
+                    ax.text(x + 0.5, y + 0.5, content, color=textcolor,
+                            ha='center', va='center', fontsize=8, fontweight='500')
 
     # Month borders code credited to https://github.com/rougier/calendar-heatmap
     xticks = []
@@ -244,8 +246,9 @@ def yearplot(data, year=None, how='sum',
              (x1, 0),
              (x0, 0) ]
         xticks.append(x0 + (x1-x0+1)/2)
+        # Improved month borders with better styling
         poly = Polygon(P, edgecolor=edgecolor, facecolor='None',
-                       linewidth=linewidth, zorder=20, clip_on=False)
+                       linewidth=linewidth*1.5, zorder=20, clip_on=False, linestyle='-')
         ax.add_artist(poly)
 
     return ax
@@ -325,6 +328,11 @@ def calplot(data, how='sum',
                              subplot_kw=subplot_kws,
                              gridspec_kw=gridspec_kws, **fig_kws)
     axes = axes.T[0]
+    
+    # Improved figure styling
+    fig.patch.set_facecolor('white')
+    for ax in axes:
+        ax.set_facecolor('#FAFAFA')  # Light gray background
 
     # We explicitely resample by day only once. This is an optimization.
     by_day = data
@@ -332,8 +340,8 @@ def calplot(data, how='sum',
         by_day = by_day.resample('D').agg(how)
 
     ylabel_kws = dict(
-        fontsize=30,
-        color='gray',
+        fontsize=28,
+        color='#1F2937',
         fontname='Helvetica',
         fontweight='bold',
         ha='center')
@@ -347,31 +355,36 @@ def calplot(data, how='sum',
 
         if yearlabels:
             ax.set_ylabel(str(year), **ylabel_kws)
+            # Add subtle background to year labels
+            ax.yaxis.label.set_bbox(dict(boxstyle='round,pad=0.3', facecolor='#F3F4F6', alpha=0.7, edgecolor='none'))
 
     # In a leap year it might happen that we have 54 weeks (e.g., 2012).
     # Here we make sure the width is consistent over all years.
     for ax in axes:
         ax.set_xlim(0, max_weeks)
 
-    stitle_kws = dict()
+    stitle_kws = dict(fontsize=16, fontweight='bold', color='#1F2937', fontname='Helvetica')
 
     if tight_layout:
         plt.tight_layout()
-        stitle_kws.update({'y': 1})
+        stitle_kws.update({'y': 0.98})
 
     if colorbar:
         if tight_layout:
-            stitle_kws.update({'x': 0.425, 'y': 1.03})
+            stitle_kws.update({'x': 0.425, 'y': 1.02})
 
         if len(years) == 1:
-            fig.colorbar(axes[0].get_children()[1], ax=axes.ravel().tolist(),
-                         orientation='vertical')
+            cbar = fig.colorbar(axes[0].get_children()[1], ax=axes.ravel().tolist(),
+                         orientation='vertical', pad=0.02)
+            cbar.ax.tick_params(labelsize=9)
         else:
             fig.subplots_adjust(right=0.8)
             cax = fig.add_axes([0.85, 0.025, 0.02, 0.95])
-            fig.colorbar(axes[0].get_children()[1], cax=cax, orientation='vertical')
+            cbar = fig.colorbar(axes[0].get_children()[1], cax=cax, orientation='vertical')
+            cbar.ax.tick_params(labelsize=9)
 
     stitle_kws.update(suptitle_kws)
-    plt.suptitle(suptitle, **stitle_kws)
+    if suptitle:
+        plt.suptitle(suptitle, **stitle_kws)
 
     return fig, axes
