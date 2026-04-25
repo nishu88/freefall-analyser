@@ -581,8 +581,7 @@ def inject_custom_css():
         overflow: hidden;
     }
     
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
+    /* Hide Streamlit footer only (keep hamburger menu for Print) */
     footer {visibility: hidden;}
     
     /* Section headers */
@@ -642,7 +641,7 @@ def main():
             st.warning("Sample CSV file not found") 
 
         st.warning("You can Group by these SCRIPS: (BANKNIFTY, NIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX)") 
-        st.success("You can print to PDF from top right hamburger icon")
+        st.success("📄 **Print to PDF:** Click ☰ menu (top-right) → Print → Save as PDF")
         st.info("You can add multiple CSV files to aggregate strategies")
 
 
