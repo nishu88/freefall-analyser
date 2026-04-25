@@ -88,52 +88,72 @@ def box(col, key, value, percentage=None, color='green'):
     with col:
         style = """
             <style>
-            .average__card {
+            .metric__card {
                 position: relative;
                 padding: 0;
                 height: 100%;
-                border: 1px solid green;
-                border-radius: 4px;
+                border-radius: 12px;
                 text-align: center;
                 overflow: hidden;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                transition: all 0.2s ease;
             }
-            .average__card .__title {
-                padding: 5px 0;
-                border-bottom: 1px solid;
-                border-radius: 4px 4px 0 0;
-                color: green;
-                background-color: rgba(0, 128, 0, 0.15);
+            .metric__card:hover {
+                box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+                transform: translateY(-2px);
             }
-            .average__card .__value {
-                padding: 10px 0;
+            .metric__card .__title {
+                padding: 8px 12px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
-            .__average__price {
-                border-color: #f19f15;
+            .metric__card .__value {
+                padding: 12px 8px 14px 8px;
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: #1F2937;
             }
-            .__average__price .__title {
-                color: #f19f15;
-                background-color: #fef8e1;
+            .metric__green {
+                border: 1px solid #10B981;
             }
-            .__loss__price {
-                border-color: #ef9a99;
+            .metric__green .__title {
+                color: #059669;
+                background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+                border-bottom: 1px solid #10B981;
             }
-            .__loss__price .__title {
-                color: red;
-                border-color: #ef9a99;
-                background-color: #fbebee;
+            .metric__yellow {
+                border: 1px solid #F59E0B;
+            }
+            .metric__yellow .__title {
+                color: #D97706;
+                background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+                border-bottom: 1px solid #F59E0B;
+            }
+            .metric__red {
+                border: 1px solid #EF4444;
+            }
+            .metric__red .__title {
+                color: #DC2626;
+                background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+                border-bottom: 1px solid #EF4444;
             }
             .stats_percent {
-                font-size: 13px;
-                opacity: 0.8;
+                font-size: 0.8rem;
+                font-weight: 500;
+                opacity: 0.7;
+                display: block;
+                margin-top: 2px;
             }
             </style>
         """
 
-        subclass = '__average__price' if color == 'yellow' else (
-            '__loss__price' if color == 'red' else '')
-        percent = f'<span class="stats_percent">({percentage})</span>' if percentage is not None else ''
+        color_class = 'metric__yellow' if color == 'yellow' else ('metric__red' if color == 'red' else 'metric__green')
+        percent = f'<span class="stats_percent">{percentage}</span>' if percentage is not None else ''
         st.markdown(
-            f'<div class="average__card {subclass}"><div class="__title">{key}</div><div class="__value">{value} {percent}</div></div>{style}',
+            f'<div class="metric__card {color_class}"><div class="__title">{key}</div><div class="__value">{value}{percent}</div></div>{style}',
             unsafe_allow_html=True
         )
 
@@ -458,11 +478,148 @@ def formatINR(number):
        value = '-' + value
     return '₹'+ value
 
+def inject_custom_css():
+    """Inject modern custom CSS for better UI appearance."""
+    st.markdown("""
+    <style>
+    /* Modern Typography and Spacing */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Header styling */
+    .app-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    .app-header h1 {
+        color: white;
+        margin: 0;
+        font-weight: 700;
+        font-size: 1.8rem;
+    }
+    .app-header p {
+        color: rgba(255,255,255,0.85);
+        margin: 0.3rem 0 0 0;
+        font-size: 0.95rem;
+    }
+    
+    /* Modern card styling */
+    .stExpander {
+        border: 1px solid #E5E7EB !important;
+        border-radius: 12px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    }
+    .stExpander > div:first-child {
+        border-radius: 12px !important;
+    }
+    
+    /* Better file uploader */
+    .stFileUploader > div {
+        border: 2px dashed #D1D5DB !important;
+        border-radius: 12px !important;
+        padding: 1.5rem !important;
+        background: #FAFAFA !important;
+        transition: all 0.2s ease;
+    }
+    .stFileUploader > div:hover {
+        border-color: #667eea !important;
+        background: #F5F3FF !important;
+    }
+    
+    /* Improved buttons */
+    .stButton > button {
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.5rem !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Modern select boxes */
+    .stSelectbox > div > div {
+        border-radius: 8px !important;
+    }
+    
+    /* Improved metrics cards */
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border: 1px solid #E5E7EB;
+        transition: all 0.2s ease;
+    }
+    .metric-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    /* Divider styling */
+    hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(to right, transparent, #E5E7EB, transparent);
+        margin: 2rem 0;
+    }
+    
+    /* Info/Warning boxes */
+    .stAlert {
+        border-radius: 10px !important;
+    }
+    
+    /* DataFrame styling */
+    .stDataFrame {
+        border-radius: 10px !important;
+        overflow: hidden;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Section headers */
+    .section-header {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #1F2937;
+        margin: 1.5rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #667eea;
+        display: inline-block;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 def main():
-    st.set_page_config(page_title="Trades Analyzer", layout="wide")
+    st.set_page_config(
+        page_title="Trades Analyzer", 
+        page_icon="📊",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+    
+    inject_custom_css()
+    
+    # Modern header
+    st.markdown("""
+    <div class="app-header">
+        <h1>📊 Trades Analyzer</h1>
+        <p>Comprehensive trading performance analytics and visualization</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     col1, col, col2 = st.columns([1, 8, 1])
 
-    with st.expander('How to USE??'):
+    with st.expander('📚 How to Use', expanded=False):
         st.info("Upload .csv in the following format: Date, PnL, Instrument, Buy/Sell")
         
         # Date	     PnL		Instrument	Buy/Sell
@@ -491,13 +648,27 @@ def main():
 
     with col:
         uploadedFiles = st.file_uploader(
-            "Upload Trade CSV Files",
+            "📁 Upload Trade CSV Files",
             key="1",
-            help="To activate 'wide mode', go to the hamburger menu > Settings > turn on 'wide mode'",
+            help="Upload one or more CSV files with your trading data. Multiple files will be aggregated.",
             accept_multiple_files=True
         )
         if len(uploadedFiles) == 0:
-            st.info("👆 Upload a trades csv file first.")
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); 
+                        border: 2px dashed #0EA5E9;
+                        padding: 2rem;
+                        border-radius: 12px;
+                        text-align: center;
+                        margin: 1rem 0;">
+                <p style="margin: 0; color: #0369A1; font-size: 1.1rem; font-weight: 600;">
+                    👆 Upload your trades CSV file to get started
+                </p>
+                <p style="margin: 0.5rem 0 0 0; color: #0284C7; font-size: 0.9rem;">
+                    Supports multiple files for strategy aggregation
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
             st.stop()
 
         # List to store the dataframes
@@ -635,9 +806,11 @@ def main():
                 cumulativePnL.index = tradesData['Entry Date/Time']
                 runningMaxPnL = cumulativePnL.cummax()
 
+            st.markdown("<br>", unsafe_allow_html=True)
             st.divider()
-            st.title(" ")    
-            with st.expander('Get Quantstats Report'):
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            with st.expander('🔬 Generate Quantstats Report', expanded=False):
                 result = st.button('Run')
                 if result:
                     try:
@@ -657,7 +830,8 @@ def main():
                             st.warning("Could not generate benchmark comparison: " + str(e))
                     except Exception as e:
                         st.error(f"Error generating Quantstats report: {str(e)}")   
-            st.title(" ")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
             st.divider()
 
             runningMaxPnL = cumulativePnL.cummax()
@@ -745,20 +919,46 @@ def main():
             # with col2:
             #     plotScatterMFE(tradesData)
 
-        # with st.expander("Check dataframe"):
-        #     st.dataframe(tradesData, use_container_width=True)
-        st.title(" ")
-        st.title(" ")
-        st.title(" ")
+        # Spacer
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        st.info('Check out the Quantstats Report (Scroll ☝️☝️☝️)', icon='🧐') 
-        st.title(" ")
-        st.title(" ")
-        st.title(" ")
-        st.toast('Check out the Quantstats Report', icon='🧐') 
+        # Callout for Quantstats
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); 
+                    border-left: 4px solid #667eea; 
+                    padding: 1rem 1.5rem; 
+                    border-radius: 0 10px 10px 0;
+                    margin: 1rem 0;">
+            <p style="margin: 0; color: #4338CA; font-weight: 600;">
+                📈 Pro Tip: Check out the Quantstats Report above for detailed analytics!
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.toast('Check out the Quantstats Report', icon='📊') 
 
-        with st.expander('What do these metrics mean??'):
-            st.info("***Disclaimer: ChatGPT copy-paste xD*** \n\n \nAverage Day Profit: The average profit earned per trading day during the period under consideration. It's calculated by summing up the profits of each trading day and dividing by the total number of trading days.\n\n\nMax Drawdown: The maximum peak-to-trough decline in the trading capital during the trading period. It quantifies the maximum loss experienced from the peak capital value.\n\n\nExpectancy: A statistical measure that quantifies the average amount of profit or loss expected per unit of risk. It's calculated as (Probability of Win * Average Win) - (Probability of Loss * Average Loss). It provides insight into the profitability of the trading strategy over the long term.\n\n\n Compound Annual Growth Rate (CAGR): CAGR is a measure of the annual growth rate of an investment over a specified time period, considering the effect of compounding. It provides a smooth representation of the average annual growth rate of an investment, regardless of any fluctuations in the market.\n\n\nSharpe Ratio: The Sharpe Ratio measures the risk-adjusted return of an investment or trading strategy. It's calculated by dividing the excess return of the investment (return above the risk-free rate) by the standard deviation of the investment's returns. A higher Sharpe Ratio indicates better risk-adjusted returns.\n\n\nSortino Ratio: Similar to the Sharpe Ratio, the Sortino Ratio measures the risk-adjusted return of an investment. However, it focuses only on the downside risk, considering only the standard deviation of negative returns. It is often preferred over the Sharpe Ratio for strategies where downside risk is a significant concern.\n\n\nOmega Ratio: The Omega Ratio evaluates the risk-return profile of an investment by comparing the probability-weighted average return of the investment to a target return or threshold. It provides a measure of the likelihood of achieving returns above a specified threshold.\n\n\nCalmar Ratio: The Calmar Ratio measures the risk-adjusted performance of an investment or trading strategy by comparing the average annual rate of return to the maximum drawdown experienced during a specified period. A higher Calmar Ratio indicates better risk-adjusted returns relative to drawdown.\n\n\nKurtosis: Kurtosis is a statistical measure that describes the distribution of returns around its mean in a probability distribution. In the context of trading, it indicates the degree of peakedness or flatness of a return distribution compared to a normal distribution. High kurtosis implies fat tails, meaning higher probabilities of extreme returns.\n\n\nKelly Criterion: The Kelly Criterion is a mathematical formula used to determine the optimal size of a series of bets or investments to maximize long-term wealth growth. It takes into account the probability of success and the payoff ratio of each bet or investment.\n\n\nRisk of Ruin: Risk of ruin is the probability of losing a significant portion of or the entire trading capital due to consecutive losses or a prolonged drawdown. It's an important metric for assessing the probability of financial ruin under a given trading strategy.\n\n\nValue at Risk (VaR): Value at Risk is a statistical measure that quantifies the potential loss of an investment or portfolio over a specified time horizon and at a given confidence level. It provides an estimate of the maximum potential loss that a portfolio may incur within a certain probability.")
+        with st.expander('📖 What do these metrics mean?'):
+            st.info("***Disclaimer: ChatGPT copy-paste xD*** \n\n \n**Average Day Profit:** The average profit earned per trading day during the period under consideration. It's calculated by summing up the profits of each trading day and dividing by the total number of trading days.\n\n\n**Max Drawdown:** The maximum peak-to-trough decline in the trading capital during the trading period. It quantifies the maximum loss experienced from the peak capital value.\n\n\n**Expectancy:** A statistical measure that quantifies the average amount of profit or loss expected per unit of risk. It's calculated as (Probability of Win * Average Win) - (Probability of Loss * Average Loss). It provides insight into the profitability of the trading strategy over the long term.\n\n\n**Compound Annual Growth Rate (CAGR):** CAGR is a measure of the annual growth rate of an investment over a specified time period, considering the effect of compounding. It provides a smooth representation of the average annual growth rate of an investment, regardless of any fluctuations in the market.\n\n\n**Sharpe Ratio:** The Sharpe Ratio measures the risk-adjusted return of an investment or trading strategy. It's calculated by dividing the excess return of the investment (return above the risk-free rate) by the standard deviation of the investment's returns. A higher Sharpe Ratio indicates better risk-adjusted returns.\n\n\n**Sortino Ratio:** Similar to the Sharpe Ratio, the Sortino Ratio measures the risk-adjusted return of an investment. However, it focuses only on the downside risk, considering only the standard deviation of negative returns. It is often preferred over the Sharpe Ratio for strategies where downside risk is a significant concern.\n\n\n**Omega Ratio:** The Omega Ratio evaluates the risk-return profile of an investment by comparing the probability-weighted average return of the investment to a target return or threshold. It provides a measure of the likelihood of achieving returns above a specified threshold.\n\n\n**Calmar Ratio:** The Calmar Ratio measures the risk-adjusted performance of an investment or trading strategy by comparing the average annual rate of return to the maximum drawdown experienced during a specified period. A higher Calmar Ratio indicates better risk-adjusted returns relative to drawdown.\n\n\n**Kurtosis:** Kurtosis is a statistical measure that describes the distribution of returns around its mean in a probability distribution. In the context of trading, it indicates the degree of peakedness or flatness of a return distribution compared to a normal distribution. High kurtosis implies fat tails, meaning higher probabilities of extreme returns.\n\n\n**Kelly Criterion:** The Kelly Criterion is a mathematical formula used to determine the optimal size of a series of bets or investments to maximize long-term wealth growth. It takes into account the probability of success and the payoff ratio of each bet or investment.\n\n\n**Risk of Ruin:** Risk of ruin is the probability of losing a significant portion of or the entire trading capital due to consecutive losses or a prolonged drawdown. It's an important metric for assessing the probability of financial ruin under a given trading strategy.\n\n\n**Value at Risk (VaR):** Value at Risk is a statistical measure that quantifies the potential loss of an investment or portfolio over a specified time horizon and at a given confidence level. It provides an estimate of the maximum potential loss that a portfolio may incur within a certain probability.")
+        
+        # Modern footer
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background: #F9FAFB; 
+                    border-top: 1px solid #E5E7EB;
+                    padding: 1.5rem;
+                    border-radius: 12px;
+                    text-align: center;
+                    margin-top: 2rem;">
+            <p style="margin: 0; color: #6B7280; font-size: 0.9rem;">
+                Built with ❤️ for traders | 
+                <span style="color: #667eea; font-weight: 600;">Trades Analyzer</span>
+            </p>
+            <p style="margin: 0.5rem 0 0 0; color: #9CA3AF; font-size: 0.8rem;">
+                Analyze • Optimize • Profit
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
 if __name__ == "__main__":
     main()

@@ -257,13 +257,13 @@ def yearplot(data, year=None, how='sum',
         else:
             display_text = f'{prefix}{profit:,.0f}'
         
-        # Create pill-style badge
-        text = ax.text(week_start, -1.8, display_text,
+        # Create pill-style badge with larger, more visible text
+        text = ax.text(week_start, -2.2, display_text,
                        color=text_color, ha='center', va='top', 
-                       fontsize=8, fontfamily='sans-serif',
+                       fontsize=15, fontfamily='sans-serif',
                        fontweight='bold',
-                       bbox=dict(boxstyle='round,pad=0.3,rounding_size=0.5', 
-                                facecolor=bg_color, edgecolor='none', alpha=0.9))
+                       bbox=dict(boxstyle='round,pad=0.4,rounding_size=0.5', 
+                                facecolor=bg_color, edgecolor='none', alpha=0.95))
 
     # Text in mesh grid if format is specified.
     if textformat is not None:
@@ -375,7 +375,7 @@ def calplot(data, how='sum',
         colorbar = data.nunique() > 1
 
     if figsize is None:
-        figsize = (16+(colorbar*2), 2.8*len(years))
+        figsize = (16+(colorbar*2), 3.2*len(years))
 
     fig, axes = plt.subplots(nrows=len(years), ncols=1, squeeze=False,
                              figsize=figsize,
@@ -428,8 +428,8 @@ def calplot(data, how='sum',
     if tight_layout:
         plt.tight_layout()
         stitle_kws.update({'y': 0.98})
-        # Add extra space for monthly summary badges
-        plt.subplots_adjust(bottom=0.12, hspace=0.4)
+        # Add extra space for larger monthly summary badges
+        plt.subplots_adjust(bottom=0.15, hspace=0.5)
 
     if colorbar:
         if tight_layout:
