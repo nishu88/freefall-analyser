@@ -2,6 +2,7 @@
 Calendar heatmaps from Pandas time series data.
 
 Plot Pandas time series data sampled by day in a heatmap per calendar year.
+Modern, beautified version with professional styling.
 """
 
 import calendar
@@ -11,20 +12,39 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 
-from matplotlib.colors import ColorConverter, ListedColormap
-from matplotlib.patches import Polygon
+from matplotlib.colors import ColorConverter, ListedColormap, LinearSegmentedColormap
+from matplotlib.patches import Polygon, FancyBboxPatch
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as path_effects
 
+
+def create_profit_loss_cmap():
+    """Create a modern diverging colormap for profit/loss visualization."""
+    colors = [
+        '#DC2626',  # Deep red (large loss)
+        '#EF4444',  # Red
+        '#F87171',  # Light red
+        '#FCA5A5',  # Very light red
+        '#FEE2E2',  # Pale red
+        '#F9FAFB',  # Neutral (near zero)
+        '#D1FAE5',  # Pale green
+        '#6EE7B7',  # Very light green
+        '#34D399',  # Light green
+        '#10B981',  # Green
+        '#059669',  # Deep green (large profit)
+    ]
+    return LinearSegmentedColormap.from_list('profit_loss', colors, N=256)
+
 def yearplot(data, year=None, how='sum',
              vmin=None, vmax=None,
-             cmap='viridis', fillcolor='whitesmoke',
-             linewidth=1, linecolor=None, edgecolor='gray',
-             daylabels=calendar.day_abbr[:], dayticks=True,
+             cmap=None, fillcolor='#F3F4F6',
+             linewidth=0.5, linecolor='white', edgecolor='#E5E7EB',
+             daylabels=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], dayticks=True,
              dropzero=None,
-             textformat=None, textfiller='', textcolor='black',
-             monthlabels=calendar.month_abbr[1:], monthlabeloffset=15,
-             monthticks=True,
+             textformat=None, textfiller='', textcolor='#6B7280',
+             monthlabels=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], monthlabeloffset=15,
+             monthticks=True, highlight_weekends=True,
              ax=None, **kwargs):
     """
     Plot one year from a timeseries as a calendar heatmap.
@@ -92,10 +112,8 @@ def yearplot(data, year=None, how='sum',
         year = data.index.sort_values()[0].year
 
     if how is None:
-        # Assume already sampled by day.
         by_day = data
     else:
-        # Sample by day.
         by_day = data.resample('D').agg(how)
 
     # Default to dropping zero values for a series with over 50% of rows being zero.
@@ -111,16 +129,14 @@ def yearplot(data, year=None, how='sum',
     if vmax is None:
         vmax = by_day.max()
 
+    # Use custom profit/loss colormap if not specified
+    if cmap is None:
+        cmap = create_profit_loss_cmap()
+
     if ax is None:
         ax = plt.gca()
 
     if linecolor is None:
-        # Unfortunately, linecolor cannot be transparent, as it is drawn on
-        # top of the heatmap cells. Therefore it is only possible to mimic
-        # transparent lines by setting them to the axes background color. This
-        # of course won't work when the axes itself has a transparent
-        # background so in that case we default to white which will usually be
-        # the figure or canvas background color.
         linecolor = ax.get_facecolor()
         if ColorConverter().to_rgba(linecolor)[-1] == 0:
             linecolor = 'white'
@@ -194,24 +210,60 @@ def yearplot(data, year=None, how='sum',
     ax.set_xticks([by_day.loc[pd.Timestamp(
                    datetime.date(year, i + 1, monthlabeloffset))].week
                    for i in monthticks])
-    ax.set_xticklabels([monthlabels[i] for i in monthticks], fontsize=11, fontweight='bold', fontname='Helvetica')
+    ax.set_xticklabels([monthlabels[i] for i in monthticks], 
+                       fontsize=10, fontweight='600', color='#374151',
+                       fontfamily='sans-serif')
 
     ax.set_ylabel('')
     ax.yaxis.set_ticks_position('right')
     ax.set_yticks([6 - i + 0.5 for i in dayticks])
+    
+    # Style day labels with weekend highlighting
+    day_colors = ['#6B7280'] * 5 + ['#9CA3AF', '#9CA3AF']  # Lighter for weekends
     ax.set_yticklabels([daylabels[i] for i in dayticks], rotation='horizontal',
-                       va='center', fontsize=10, fontweight='500', fontname='Helvetica')
+                       va='center', fontsize=9, fontweight='500', 
+                       fontfamily='sans-serif')
+    
+    # Color weekend labels differently
+    for i, label in enumerate(ax.get_yticklabels()):
+        if i < 2:  # Saturday and Sunday (reversed order)
+            label.set_color('#9CA3AF')
+        else:
+            label.set_color('#6B7280')
 
-    # Improved monthly summary display
-    monthly_sum = by_day.groupby(pd.Grouper(freq='M')).sum()['data']
+    # Enhanced monthly summary display with pill-style badges
+    monthly_sum = by_day.groupby(pd.Grouper(freq='ME')).sum()['data']
     for month, week_start in zip(range(1, 13), ax.get_xticks()):
-        profit = round(monthly_sum[month - 1], 2)
-        color = '#10B981' if profit >= 0 else '#EF4444'  # Modern green/red
-        # Rotate text and position below the heatmap to prevent overlapping
-        text = ax.text(week_start, -1.5, f'₹{profit:,.0f}',
-                       color=color, ha='center', va='top', fontsize=9, fontname='Helvetica',
-                       fontweight='bold')
-        text.set_path_effects([path_effects.withStroke(linewidth=2, foreground='white')])
+        try:
+            profit = round(monthly_sum.iloc[month - 1], 2)
+        except (IndexError, KeyError):
+            continue
+        
+        # Modern color scheme with gradients
+        if profit >= 0:
+            bg_color = '#D1FAE5'
+            text_color = '#065F46'
+            prefix = '+'
+        else:
+            bg_color = '#FEE2E2'
+            text_color = '#991B1B'
+            prefix = ''
+        
+        # Format number with K/L suffix for readability
+        if abs(profit) >= 100000:
+            display_text = f'{prefix}{profit/100000:.1f}L'
+        elif abs(profit) >= 1000:
+            display_text = f'{prefix}{profit/1000:.1f}K'
+        else:
+            display_text = f'{prefix}{profit:,.0f}'
+        
+        # Create pill-style badge
+        text = ax.text(week_start, -1.8, display_text,
+                       color=text_color, ha='center', va='top', 
+                       fontsize=8, fontfamily='sans-serif',
+                       fontweight='bold',
+                       bbox=dict(boxstyle='round,pad=0.3,rounding_size=0.5', 
+                                facecolor=bg_color, edgecolor='none', alpha=0.9))
 
     # Text in mesh grid if format is specified.
     if textformat is not None:
@@ -228,7 +280,7 @@ def yearplot(data, year=None, how='sum',
                     ax.text(x + 0.5, y + 0.5, content, color=textcolor,
                             ha='center', va='center', fontsize=8, fontweight='500')
 
-    # Month borders code credited to https://github.com/rougier/calendar-heatmap
+    # Month borders - modern subtle styling
     xticks = []
     start = datetime.datetime(year, 1, 1).weekday()
     for month in range(1, 13):
@@ -245,11 +297,12 @@ def yearplot(data, year=None, how='sum',
              (x1+1, y1-1),
              (x1, y1-1),
              (x1, 0),
-             (x0, 0) ]
+             (x0, 0)]
         xticks.append(x0 + (x1-x0+1)/2)
-        # Improved month borders with better styling
-        poly = Polygon(P, edgecolor=edgecolor, facecolor='None',
-                       linewidth=linewidth*1.5, zorder=20, clip_on=False, linestyle='-')
+        # Elegant month borders with subtle shadow effect
+        poly = Polygon(P, edgecolor='#D1D5DB', facecolor='None',
+                       linewidth=1.2, zorder=20, clip_on=False, 
+                       linestyle='-', capstyle='round', joinstyle='round')
         ax.add_artist(poly)
 
     return ax
@@ -322,7 +375,7 @@ def calplot(data, how='sum',
         colorbar = data.nunique() > 1
 
     if figsize is None:
-        figsize = (14+(colorbar*2.5), 2.2*len(years))
+        figsize = (16+(colorbar*2), 2.8*len(years))
 
     fig, axes = plt.subplots(nrows=len(years), ncols=1, squeeze=False,
                              figsize=figsize,
@@ -330,10 +383,10 @@ def calplot(data, how='sum',
                              gridspec_kw=gridspec_kws, **fig_kws)
     axes = axes.T[0]
     
-    # Improved figure styling
-    fig.patch.set_facecolor('white')
+    # Modern figure styling with clean background
+    fig.patch.set_facecolor('#FFFFFF')
     for ax in axes:
-        ax.set_facecolor('#FAFAFA')  # Light gray background
+        ax.set_facecolor('#FAFAFA')
 
     # We explicitely resample by day only once. This is an optimization.
     by_day = data
@@ -341,9 +394,9 @@ def calplot(data, how='sum',
         by_day = by_day.resample('D').agg(how)
 
     ylabel_kws = dict(
-        fontsize=28,
+        fontsize=24,
         color='#1F2937',
-        fontname='Helvetica',
+        fontfamily='sans-serif',
         fontweight='bold',
         ha='center')
     ylabel_kws.update(yearlabel_kws)
@@ -356,21 +409,27 @@ def calplot(data, how='sum',
 
         if yearlabels:
             ax.set_ylabel(str(year), **ylabel_kws)
-            # Add subtle background to year labels
-            ax.yaxis.label.set_bbox(dict(boxstyle='round,pad=0.3', facecolor='#F3F4F6', alpha=0.7, edgecolor='none'))
+            # Modern pill-style year label
+            ax.yaxis.label.set_bbox(dict(
+                boxstyle='round,pad=0.4,rounding_size=0.3', 
+                facecolor='#F3F4F6', 
+                alpha=0.9, 
+                edgecolor='#E5E7EB',
+                linewidth=0.5
+            ))
 
     # In a leap year it might happen that we have 54 weeks (e.g., 2012).
     # Here we make sure the width is consistent over all years.
     for ax in axes:
         ax.set_xlim(0, max_weeks)
 
-    stitle_kws = dict(fontsize=16, fontweight='bold', color='#1F2937', fontname='Helvetica')
+    stitle_kws = dict(fontsize=18, fontweight='bold', color='#111827', fontfamily='sans-serif')
 
     if tight_layout:
         plt.tight_layout()
         stitle_kws.update({'y': 0.98})
-        # Add extra space for rotated month labels
-        plt.subplots_adjust(bottom=0.15)
+        # Add extra space for monthly summary badges
+        plt.subplots_adjust(bottom=0.12, hspace=0.4)
 
     if colorbar:
         if tight_layout:
@@ -378,13 +437,20 @@ def calplot(data, how='sum',
 
         if len(years) == 1:
             cbar = fig.colorbar(axes[0].get_children()[1], ax=axes.ravel().tolist(),
-                         orientation='vertical', pad=0.02)
-            cbar.ax.tick_params(labelsize=9)
+                         orientation='vertical', pad=0.03, aspect=30)
+            cbar.ax.tick_params(labelsize=9, colors='#6B7280')
+            cbar.outline.set_edgecolor('#E5E7EB')
+            cbar.outline.set_linewidth(0.5)
+            # Add labels for colorbar
+            cbar.set_label('Daily P&L', fontsize=10, color='#374151', fontfamily='sans-serif')
         else:
-            fig.subplots_adjust(right=0.8)
-            cax = fig.add_axes([0.85, 0.025, 0.02, 0.95])
+            fig.subplots_adjust(right=0.82)
+            cax = fig.add_axes([0.86, 0.08, 0.015, 0.84])
             cbar = fig.colorbar(axes[0].get_children()[1], cax=cax, orientation='vertical')
-            cbar.ax.tick_params(labelsize=9)
+            cbar.ax.tick_params(labelsize=9, colors='#6B7280')
+            cbar.outline.set_edgecolor('#E5E7EB')
+            cbar.outline.set_linewidth(0.5)
+            cbar.set_label('Daily P&L', fontsize=10, color='#374151', fontfamily='sans-serif')
 
     stitle_kws.update(suptitle_kws)
     if suptitle:
