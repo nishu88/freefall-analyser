@@ -626,7 +626,7 @@ def main():
         # 1/31/2024   0			BANKNIFTY	Sell
 
         data = {
-                "Date": ["12/31/2023","2/26/2024","3/27/2024" ],
+                "Date": ["31-12-2023","2/26/2024","3/27/2024" ],
                 "PnL": [5000.63, -4500.85, 5045],
                 "Instrument": ["BANKNIFTY","BANKNIFTY","FINNIFTY"],
                 "Buy/Sell": ["Sell","Buy","Sell"]
