@@ -165,9 +165,9 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     averageLossOnLosses = tradesData['PnL'][tradesData['PnL'] < 0].mean()
     
     # Monthly analysis
-    monthlyProfit = tradesData.resample('M', on='Date').sum(numeric_only=True)['PnL'].mean()
+    monthlyProfit = tradesData.resample('ME', on='Date').sum(numeric_only=True)['PnL'].mean()
     monthlyCount = len(tradesData.groupby(tradesData['Date'].dt.to_period('M')))
-    profitableMonths = len(tradesData.resample('M', on='Date').sum(numeric_only=True)[tradesData.resample('M', on='Date').sum(numeric_only=True)['PnL'] > 0])
+    profitableMonths = len(tradesData.resample('ME', on='Date').sum(numeric_only=True)[tradesData.resample('ME', on='Date').sum(numeric_only=True)['PnL'] > 0])
     
     # ROI and CAGR
     roi = (overallPnL / initialCapital) * 100
@@ -262,7 +262,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
 
     # Calculate the Return to MDD ratio
     averageYearlyProfit = tradesData.set_index(
-        'Date')['PnL'].cumsum().resample('Y').last().diff().mean()
+        'Date')['PnL'].cumsum().resample('YE').last().diff().mean()
     returnToMddRatio = abs(averageYearlyProfit / mdd) if mdd != 0 else None
 
     # Recovery factor
@@ -293,7 +293,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     
     # Monthly Performance Table
     with st.expander('📊 Monthly Performance Details', expanded=False):
-        monthly_data = tradesData.set_index('Date').resample('M')['PnL'].agg(['sum', 'count', 'mean'])
+        monthly_data = tradesData.set_index('Date').resample('ME')['PnL'].agg(['sum', 'count', 'mean'])
         monthly_data.columns = ['Total PnL', 'Trades', 'Avg Trade']
         monthly_data.index = monthly_data.index.strftime('%Y-%m')
         
