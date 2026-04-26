@@ -536,10 +536,12 @@ def html(
             savefig={"fname": figfile, "format": figfmt},
             show=False,
             ylabel=False,
-            prepare_returns=False,
         )
         tpl = tpl.replace("{{montecarlo}}", _embed_figure(figfile, figfmt))
-    except Exception:
+    except Exception as e:
+        # Log the error for debugging but don't fail the report
+        import sys
+        print(f"Monte Carlo plot failed: {e}", file=sys.stderr)
         tpl = tpl.replace("{{montecarlo}}", "")
 
     tpl = _regex.sub(r"\{\{(.*?)\}\}", "", tpl)
