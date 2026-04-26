@@ -281,8 +281,7 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     mddDateRange = f"{mddStartDate.strftime('%d %b %Y') if mddStartDate is not None else ''} - {mddEndDate.strftime('%d %b %Y') if mddEndDate is not None else ''}"
 
     # Calculate the Return to MDD ratio
-    averageYearlyProfit = tradesData.set_index(
-        'Date')['PnL'].cumsum().resample('YE').last().diff().mean()
+    averageYearlyProfit = overallPnL / years_traded if years_traded > 0 else 0
     returnToMddRatio = abs(averageYearlyProfit / mdd) if mdd != 0 else None
 
     # Recovery factor
