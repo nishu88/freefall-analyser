@@ -757,6 +757,108 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 
+def inject_screenshot_js():
+    """Inject JavaScript for full-page screenshot using html2canvas."""
+    st.markdown("""
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+    function takeFullScreenshot() {
+        const btn = document.getElementById('screenshot-btn');
+        if (btn) {
+            btn.innerText = '⏳ Capturing...';
+            btn.disabled = true;
+        }
+        
+        // Get the main content area
+        const mainContent = document.querySelector('.main');
+        if (!mainContent) {
+            alert('Could not find main content area');
+            return;
+        }
+        
+        // Store original scroll position
+        const originalScrollTop = window.scrollY;
+        
+        // Scroll to top first
+        window.scrollTo(0, 0);
+        
+        // Small delay to ensure scroll completes
+        setTimeout(() => {
+            html2canvas(mainContent, {
+                allowTaint: true,
+                useCORS: true,
+                scale: 2,
+                scrollY: 0,
+                scrollX: 0,
+                windowWidth: document.documentElement.scrollWidth,
+                windowHeight: document.documentElement.scrollHeight,
+                height: mainContent.scrollHeight,
+                width: mainContent.scrollWidth,
+                logging: false,
+                backgroundColor: '#ffffff'
+            }).then(canvas => {
+                // Create download link
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+                link.download = `trades_analysis_${timestamp}.png`;
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+                
+                // Restore scroll position
+                window.scrollTo(0, originalScrollTop);
+                
+                if (btn) {
+                    btn.innerText = '📸 Screenshot';
+                    btn.disabled = false;
+                }
+            }).catch(err => {
+                console.error('Screenshot failed:', err);
+                alert('Screenshot failed. Please try the Print to PDF option instead.');
+                window.scrollTo(0, originalScrollTop);
+                if (btn) {
+                    btn.innerText = '📸 Screenshot';
+                    btn.disabled = false;
+                }
+            });
+        }, 300);
+    }
+    </script>
+    <style>
+    .screenshot-btn {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    }
+    .screenshot-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+    .screenshot-btn:disabled {
+        background: #9CA3AF;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def render_screenshot_button():
+    """Render the screenshot button in the UI."""
+    st.markdown("""
+    <button id="screenshot-btn" class="screenshot-btn" onclick="takeFullScreenshot()">
+        📸 Screenshot
+    </button>
+    """, unsafe_allow_html=True)
+
+
 def main():
     st.set_page_config(
         page_title="Trades Analyzer", 
@@ -766,14 +868,20 @@ def main():
     )
     
     inject_custom_css()
+    inject_screenshot_js()
     
-    # Modern header
-    st.markdown("""
-    <div class="app-header">
-        <h1>📊 Trades Analyzer</h1>
-        <p>Comprehensive trading performance analytics and visualization</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Modern header with screenshot button
+    col_header, col_btn = st.columns([6, 1])
+    with col_header:
+        st.markdown("""
+        <div class="app-header">
+            <h1>📊 Trades Analyzer</h1>
+            <p>Comprehensive trading performance analytics and visualization</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_btn:
+        st.markdown("<div style='padding-top: 1rem;'></div>", unsafe_allow_html=True)
+        render_screenshot_button()
     
     col1, col, col2 = st.columns([1, 8, 1])
 
