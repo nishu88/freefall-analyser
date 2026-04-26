@@ -36,8 +36,16 @@ except ImportError:
     from IPython.core.display import display as iDisplay, HTML as iHTML
 
 
-def _get_trading_periods(periods_per_year=252):
+def _get_trading_periods(periods_per_year=252, data_length=None):
+    """Get trading periods, adjusting for small datasets."""
     half_year = _ceil(periods_per_year / 2)
+    
+    # If data is smaller than half_year, use a smaller rolling window
+    if data_length is not None and data_length < half_year:
+        # Use 20% of data length as minimum, with floor of 5
+        half_year = max(5, _ceil(data_length * 0.2))
+        periods_per_year = half_year * 2
+    
     return periods_per_year, half_year
 
 
@@ -74,8 +82,6 @@ def html(
     if match_dates:
         returns = returns.dropna()
 
-    win_year, win_half_year = _get_trading_periods(periods_per_year)
-
     tpl = ""
     with open(os.path.join(os.path.dirname(_stats.__file__), 'report.html')) as f:
         tpl = f.read()
@@ -85,6 +91,10 @@ def html(
     if match_dates:
         returns = returns.dropna()
     returns = _utils._prepare_returns(returns)
+    
+    # Get trading periods, adjusting for small datasets
+    data_len = len(returns) if isinstance(returns, _pd.Series) else len(returns.index)
+    win_year, win_half_year = _get_trading_periods(periods_per_year, data_len)
 
     strategy_title = kwargs.get("strategy_title", "Strategy")
     if isinstance(returns, _pd.DataFrame):
@@ -273,6 +283,43 @@ def html(
         prepare_returns=False,
     )
     tpl = tpl.replace("{{eoy_returns}}", _embed_figure(figfile, figfmt))
+
+    # Monthly returns bar chart
+    figfile = _utils._file_stream()
+    try:
+        _plots.monthly_returns(
+            returns,
+            benchmark,
+            grayscale=grayscale,
+            figsize=(8, 4),
+            subtitle=False,
+            savefig={"fname": figfile, "format": figfmt},
+            show=False,
+            ylabel=False,
+            compounded=compounded,
+            prepare_returns=False,
+        )
+        tpl = tpl.replace("{{monthly_returns}}", _embed_figure(figfile, figfmt))
+    except Exception:
+        tpl = tpl.replace("{{monthly_returns}}", "")
+
+    # Earnings plot (cumulative returns)
+    figfile = _utils._file_stream()
+    try:
+        _plots.earnings(
+            returns,
+            benchmark,
+            grayscale=grayscale,
+            figsize=(8, 4),
+            subtitle=False,
+            savefig={"fname": figfile, "format": figfmt},
+            show=False,
+            ylabel=False,
+            prepare_returns=False,
+        )
+        tpl = tpl.replace("{{earnings}}", _embed_figure(figfile, figfmt))
+    except Exception:
+        tpl = tpl.replace("{{earnings}}", "")
 
     figfile = _utils._file_stream()
     _plots.histogram(
@@ -477,6 +524,23 @@ def html(
             )
             embed.append(figfile)
         tpl = tpl.replace("{{returns_dist}}", _embed_figure(embed, figfmt))
+
+    # Monte Carlo simulation
+    figfile = _utils._file_stream()
+    try:
+        _plots.montecarlo(
+            returns,
+            grayscale=grayscale,
+            figsize=(8, 4),
+            subtitle=False,
+            savefig={"fname": figfile, "format": figfmt},
+            show=False,
+            ylabel=False,
+            prepare_returns=False,
+        )
+        tpl = tpl.replace("{{montecarlo}}", _embed_figure(figfile, figfmt))
+    except Exception:
+        tpl = tpl.replace("{{montecarlo}}", "")
 
     tpl = _regex.sub(r"\{\{(.*?)\}\}", "", tpl)
     tpl = tpl.replace("white-space:pre;", "")
@@ -921,6 +985,13 @@ def metrics(
         metrics["Calmar"] = _stats.calmar(df, prepare_returns=False)
         metrics["Skew"] = _stats.skew(df, prepare_returns=False)
         metrics["Kurtosis"] = _stats.kurtosis(df, prepare_returns=False)
+        
+        # Additional risk metrics
+        try:
+            metrics["Avg Return %"] = _stats.avg_return(df, prepare_returns=False) * pct
+            metrics["Geometric Mean %"] = _stats.geometric_mean(df, prepare_returns=False) * pct
+        except Exception:
+            pass
 
         metrics["~~~~~~~~~~"] = blank
 
@@ -953,10 +1024,9 @@ def metrics(
 
     metrics["Gain/Pain Ratio"] = _stats.gain_to_pain_ratio(df, rf)
     metrics["Gain/Pain (1M)"] = _stats.gain_to_pain_ratio(df, rf, "ME")
-    # if mode.lower() == 'full':
-    #     metrics['GPR (3M)'] = _stats.gain_to_pain_ratio(df, rf, "Q")
-    #     metrics['GPR (6M)'] = _stats.gain_to_pain_ratio(df, rf, "2Q")
-    #     metrics['GPR (1Y)'] = _stats.gain_to_pain_ratio(df, rf, "A")
+    if mode.lower() == 'full':
+        metrics['Gain/Pain (3M)'] = _stats.gain_to_pain_ratio(df, rf, "QE")
+        metrics['Gain/Pain (1Y)'] = _stats.gain_to_pain_ratio(df, rf, "YE")
     metrics["~~~~~~~"] = blank
 
     metrics["Payoff Ratio"] = _stats.payoff_ratio(df, prepare_returns=False)
@@ -1217,13 +1287,15 @@ def plots(
             if isinstance(strategy_colname, str):
                 strategy_colname = list(returns.columns)
 
-    win_year, win_half_year = _get_trading_periods(periods_per_year)
-
     if match_dates is True:
         returns = returns.dropna()
 
     if prepare_returns:
         returns = _utils._prepare_returns(returns)
+
+    # Get trading periods, adjusting for small datasets
+    data_len = len(returns) if isinstance(returns, _pd.Series) else len(returns.index)
+    win_year, win_half_year = _get_trading_periods(periods_per_year, data_len)
 
     if isinstance(returns, _pd.Series):
         returns.name = strategy_colname

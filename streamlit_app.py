@@ -311,50 +311,210 @@ def showStats(initialCapital: int, numOfFiles: int, tradesData: pd.DataFrame):
     box(col4, 'Strategies', f'{numOfFiles}')
     st.write('')
     
-    # Monthly Performance Table
+    # Monthly Performance Table - Enhanced
     with st.expander('📊 Monthly Performance Details', expanded=False):
-        monthly_data = tradesData.set_index('Date').resample('ME')['PnL'].agg(['sum', 'count', 'mean'])
-        monthly_data.columns = ['Total PnL', 'Trades', 'Avg Trade']
-        monthly_data.index = monthly_data.index.strftime('%Y-%m')
+        monthly_data = tradesData.set_index('Date').resample('ME')['PnL'].agg(['sum', 'count', 'mean', 'std'])
+        monthly_data.columns = ['Total PnL', 'Trades', 'Avg Trade', 'Std Dev']
         
-        # Add formatting
+        # Add ROI%, Win Rate, and Cumulative PnL
+        monthly_wins = tradesData.set_index('Date').resample('ME')['PnL'].apply(lambda x: (x > 0).sum())
+        monthly_data['Win Rate'] = (monthly_wins / monthly_data['Trades'] * 100).round(1)
+        monthly_data['ROI %'] = (monthly_data['Total PnL'] / initialCapital * 100).round(2)
+        monthly_data['Cumulative PnL'] = monthly_data['Total PnL'].cumsum()
+        monthly_data.index = monthly_data.index.strftime('%b %Y')
+        
+        # Reorder columns
+        monthly_data = monthly_data[['Total PnL', 'ROI %', 'Trades', 'Win Rate', 'Avg Trade', 'Std Dev', 'Cumulative PnL']]
+        
+        # Create styled display
+        def color_pnl(val):
+            if isinstance(val, (int, float)):
+                color = '#10B981' if val > 0 else '#EF4444' if val < 0 else '#6B7280'
+                return f'color: {color}; font-weight: 600'
+            return ''
+        
         display_monthly = monthly_data.copy()
-        display_monthly['Total PnL'] = display_monthly['Total PnL'].apply(lambda x: f'{formatINR(x)}')
-        display_monthly['Avg Trade'] = display_monthly['Avg Trade'].apply(lambda x: f'{formatINR(x)}')
-        display_monthly['Trades'] = display_monthly['Trades'].astype(int)
         
-        st.dataframe(display_monthly.style.highlight_max(axis=0, color='#90EE90').highlight_min(axis=0, color='#FFB6C6'), use_container_width=True)
+        # Format columns
+        for col in ['Total PnL', 'Avg Trade', 'Std Dev', 'Cumulative PnL']:
+            display_monthly[col] = monthly_data[col].apply(lambda x: formatINR(x) if pd.notna(x) else '-')
+        display_monthly['Trades'] = monthly_data['Trades'].astype(int)
+        display_monthly['Win Rate'] = monthly_data['Win Rate'].apply(lambda x: f'{x:.1f}%' if pd.notna(x) else '-')
+        display_monthly['ROI %'] = monthly_data['ROI %'].apply(lambda x: f'{x:+.2f}%' if pd.notna(x) else '-')
+        
+        st.markdown("""
+        <style>
+        .monthly-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.dataframe(
+            display_monthly,
+            use_container_width=True,
+            height=min(400, 35 * len(display_monthly) + 38)
+        )
+        
+        # Summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            best_month = monthly_data['Total PnL'].idxmax()
+            st.metric("Best Month", best_month, f"{formatINR(monthly_data['Total PnL'].max())}")
+        with col2:
+            worst_month = monthly_data['Total PnL'].idxmin()
+            st.metric("Worst Month", worst_month, f"{formatINR(monthly_data['Total PnL'].min())}")
+        with col3:
+            avg_monthly_roi = monthly_data['ROI %'].mean()
+            st.metric("Avg Monthly ROI", f"{avg_monthly_roi:.2f}%")
+        with col4:
+            profitable_pct = (monthly_data['Total PnL'] > 0).sum() / len(monthly_data) * 100
+            st.metric("Profitable Months", f"{profitable_pct:.1f}%")
     
-    # Additional Metrics Table
-    with st.expander('📈 Advanced Metrics', expanded=False):
-        metrics_dict = {
-            'Metric': [
-                'ROI',
-                'Days Traded',
-                'Avg Daily Profit',
-                'Std Deviation',
-                'Sharpe Ratio (approx)',
-                'Profit/Win Ratio',
-                'Loss/Win Ratio',
-                'Consecutive Wins/Losses',
-                'Profitable Months',
-                'Average Monthly Profit'
-            ],
-            'Value': [
-                f'{roi:.2f}%',
-                f'{days_traded} days',
-                f'{formatINR(averageProfit)}',
-                f'{formatINR(tradesData["PnL"].std())}',
-                f'{(averageProfit / tradesData["PnL"].std()) * np.sqrt(252):.2f}' if tradesData["PnL"].std() > 0 else 'N/A',
-                f'{abs(averageProfitOnWins / averageLossOnLosses):.2f}x' if averageLossOnLosses != 0 else 'N/A',
-                f'{abs(averageLossOnLosses / averageProfitOnWins):.2f}x' if averageProfitOnWins != 0 else 'N/A',
-                f'{maxWinningStreak} / {maxLosingStreak}',
-                f'{profitableMonths}/{monthlyCount} months',
-                f'{formatINR(monthlyProfit)}'
-            ]
-        }
-        metrics_df = pd.DataFrame(metrics_dict)
-        st.dataframe(metrics_df, use_container_width=True, hide_index=True)
+    # Advanced Metrics - Enhanced with Quant Metrics
+    with st.expander('📈 Advanced Metrics & Quant Analysis', expanded=False):
+        # Calculate additional quant metrics
+        returns = tradesData['PnL'] / initialCapital
+        std_dev = tradesData['PnL'].std()
+        downside_returns = returns[returns < 0]
+        downside_std = downside_returns.std() if len(downside_returns) > 0 else 0
+        
+        # Sharpe Ratio (annualized, assuming daily returns)
+        sharpe = (averageProfit / std_dev) * np.sqrt(252) if std_dev > 0 else 0
+        
+        # Sortino Ratio
+        sortino = (averageProfit / (downside_std * initialCapital)) * np.sqrt(252) if downside_std > 0 else 0
+        
+        # Calmar Ratio
+        calmar = (cagr / (mddPercent / 100)) if mddPercent > 0 else 0
+        
+        # Omega Ratio (threshold = 0)
+        gains = tradesData['PnL'][tradesData['PnL'] > 0].sum()
+        losses = abs(tradesData['PnL'][tradesData['PnL'] < 0].sum())
+        omega = gains / losses if losses > 0 else 0
+        
+        # Tail Ratio
+        percentile_95 = tradesData['PnL'].quantile(0.95)
+        percentile_05 = tradesData['PnL'].quantile(0.05)
+        tail_ratio = abs(percentile_95 / percentile_05) if percentile_05 != 0 else 0
+        
+        # Value at Risk (95%)
+        var_95 = tradesData['PnL'].quantile(0.05)
+        
+        # Expected Shortfall / CVaR
+        cvar = tradesData['PnL'][tradesData['PnL'] <= var_95].mean() if len(tradesData['PnL'][tradesData['PnL'] <= var_95]) > 0 else 0
+        
+        # Skewness and Kurtosis
+        skewness = tradesData['PnL'].skew()
+        kurtosis = tradesData['PnL'].kurtosis()
+        
+        # Kelly Criterion
+        win_prob = wins / totalCount if totalCount > 0 else 0
+        avg_win = averageProfitOnWins if pd.notna(averageProfitOnWins) else 0
+        avg_loss = abs(averageLossOnLosses) if pd.notna(averageLossOnLosses) else 0
+        kelly = (win_prob - ((1 - win_prob) / (avg_win / avg_loss))) if avg_loss > 0 and avg_win > 0 else 0
+        
+        # Create three columns for metrics
+        st.markdown("#### 📊 Performance Metrics")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("""
+            <div style="background: #F0FDF4; padding: 1rem; border-radius: 8px; border-left: 4px solid #10B981;">
+                <h5 style="margin:0; color: #065F46;">Return Metrics</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            metrics1 = {
+                'ROI': f'{roi:.2f}%',
+                'CAGR': f'{cagr*100:.2f}%',
+                'Avg Daily P&L': formatINR(averageProfit),
+                'Avg Monthly P&L': formatINR(monthlyProfit),
+                'Total Return': formatINR(overallPnL),
+            }
+            for k, v in metrics1.items():
+                st.markdown(f"**{k}:** {v}")
+        
+        with col2:
+            st.markdown("""
+            <div style="background: #FEF3C7; padding: 1rem; border-radius: 8px; border-left: 4px solid #F59E0B;">
+                <h5 style="margin:0; color: #92400E;">Risk-Adjusted Metrics</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            metrics2 = {
+                'Sharpe Ratio': f'{sharpe:.3f}',
+                'Sortino Ratio': f'{sortino:.3f}',
+                'Calmar Ratio': f'{calmar:.3f}',
+                'Omega Ratio': f'{omega:.3f}',
+                'Profit Factor': f'{profitFactor:.2f}',
+            }
+            for k, v in metrics2.items():
+                st.markdown(f"**{k}:** {v}")
+        
+        with col3:
+            st.markdown("""
+            <div style="background: #FEE2E2; padding: 1rem; border-radius: 8px; border-left: 4px solid #EF4444;">
+                <h5 style="margin:0; color: #991B1B;">Risk Metrics</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            metrics3 = {
+                'Max Drawdown': f'{mddPercent:.2f}%',
+                'VaR (95%)': formatINR(var_95),
+                'CVaR / ES': formatINR(cvar),
+                'Std Deviation': formatINR(std_dev),
+                'Recovery Factor': f'{recoveryFactor:.2f}',
+            }
+            for k, v in metrics3.items():
+                st.markdown(f"**{k}:** {v}")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("#### 📉 Statistical & Trading Metrics")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("""
+            <div style="background: #EEF2FF; padding: 1rem; border-radius: 8px; border-left: 4px solid #667eea;">
+                <h5 style="margin:0; color: #4338CA;">Distribution Stats</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            metrics4 = {
+                'Skewness': f'{skewness:.3f}',
+                'Kurtosis': f'{kurtosis:.3f}',
+                'Tail Ratio': f'{tail_ratio:.3f}',
+                '95th Percentile': formatINR(percentile_95),
+                '5th Percentile': formatINR(percentile_05),
+            }
+            for k, v in metrics4.items():
+                st.markdown(f"**{k}:** {v}")
+        
+        with col2:
+            st.markdown("""
+            <div style="background: #F3E8FF; padding: 1rem; border-radius: 8px; border-left: 4px solid #9333EA;">
+                <h5 style="margin:0; color: #6B21A8;">Trading Stats</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            metrics5 = {
+                'Win Rate': f'{winPercentage:.2f}%',
+                'Loss Rate': f'{lossPercentage:.2f}%',
+                'Win Streak (Max)': f'{maxWinningStreak}',
+                'Loss Streak (Max)': f'{maxLosingStreak}',
+                'Expectancy': f'{expectancy:.3f}',
+            }
+            for k, v in metrics5.items():
+                st.markdown(f"**{k}:** {v}")
+        
+        with col3:
+            st.markdown("""
+            <div style="background: #ECFDF5; padding: 1rem; border-radius: 8px; border-left: 4px solid #059669;">
+                <h5 style="margin:0; color: #065F46;">Position Sizing</h5>
+            </div>
+            """, unsafe_allow_html=True)
+            metrics6 = {
+                'Kelly Criterion': f'{kelly*100:.2f}%',
+                'Profit/Loss Ratio': f'{abs(avg_win/avg_loss):.2f}x' if avg_loss > 0 else 'N/A',
+                'Avg Win': formatINR(avg_win),
+                'Avg Loss': formatINR(-avg_loss),
+                'Days Traded': f'{days_traded}',
+            }
+            for k, v in metrics6.items():
+                st.markdown(f"**{k}:** {v}")
     
     st.write('')
 
@@ -938,7 +1098,51 @@ def main():
         st.toast('Check out the Quantstats Report', icon='📊') 
 
         with st.expander('📖 What do these metrics mean?'):
-            st.info("***Disclaimer: ChatGPT copy-paste xD*** \n\n \n**Average Day Profit:** The average profit earned per trading day during the period under consideration. It's calculated by summing up the profits of each trading day and dividing by the total number of trading days.\n\n\n**Max Drawdown:** The maximum peak-to-trough decline in the trading capital during the trading period. It quantifies the maximum loss experienced from the peak capital value.\n\n\n**Expectancy:** A statistical measure that quantifies the average amount of profit or loss expected per unit of risk. It's calculated as (Probability of Win * Average Win) - (Probability of Loss * Average Loss). It provides insight into the profitability of the trading strategy over the long term.\n\n\n**Compound Annual Growth Rate (CAGR):** CAGR is a measure of the annual growth rate of an investment over a specified time period, considering the effect of compounding. It provides a smooth representation of the average annual growth rate of an investment, regardless of any fluctuations in the market.\n\n\n**Sharpe Ratio:** The Sharpe Ratio measures the risk-adjusted return of an investment or trading strategy. It's calculated by dividing the excess return of the investment (return above the risk-free rate) by the standard deviation of the investment's returns. A higher Sharpe Ratio indicates better risk-adjusted returns.\n\n\n**Sortino Ratio:** Similar to the Sharpe Ratio, the Sortino Ratio measures the risk-adjusted return of an investment. However, it focuses only on the downside risk, considering only the standard deviation of negative returns. It is often preferred over the Sharpe Ratio for strategies where downside risk is a significant concern.\n\n\n**Omega Ratio:** The Omega Ratio evaluates the risk-return profile of an investment by comparing the probability-weighted average return of the investment to a target return or threshold. It provides a measure of the likelihood of achieving returns above a specified threshold.\n\n\n**Calmar Ratio:** The Calmar Ratio measures the risk-adjusted performance of an investment or trading strategy by comparing the average annual rate of return to the maximum drawdown experienced during a specified period. A higher Calmar Ratio indicates better risk-adjusted returns relative to drawdown.\n\n\n**Kurtosis:** Kurtosis is a statistical measure that describes the distribution of returns around its mean in a probability distribution. In the context of trading, it indicates the degree of peakedness or flatness of a return distribution compared to a normal distribution. High kurtosis implies fat tails, meaning higher probabilities of extreme returns.\n\n\n**Kelly Criterion:** The Kelly Criterion is a mathematical formula used to determine the optimal size of a series of bets or investments to maximize long-term wealth growth. It takes into account the probability of success and the payoff ratio of each bet or investment.\n\n\n**Risk of Ruin:** Risk of ruin is the probability of losing a significant portion of or the entire trading capital due to consecutive losses or a prolonged drawdown. It's an important metric for assessing the probability of financial ruin under a given trading strategy.\n\n\n**Value at Risk (VaR):** Value at Risk is a statistical measure that quantifies the potential loss of an investment or portfolio over a specified time horizon and at a given confidence level. It provides an estimate of the maximum potential loss that a portfolio may incur within a certain probability.")
+            st.info("""***Disclaimer: ChatGPT copy-paste xD***
+
+**ROI (Return on Investment):** The percentage gain or loss relative to your initial capital. Calculated as (Total Profit / Initial Capital) × 100.
+
+**Average Day Profit:** The average profit earned per trading day. Calculated by summing profits and dividing by the total number of trading days.
+
+**Max Drawdown:** The maximum peak-to-trough decline in trading capital. It quantifies the worst loss experienced from any peak.
+
+**Expectancy:** Average profit/loss expected per trade. Calculated as (Win Rate × Avg Win) - (Loss Rate × Avg Loss). Positive values indicate a profitable strategy.
+
+**CAGR (Compound Annual Growth Rate):** The annualized growth rate of your investment, accounting for compounding effects over time.
+
+**Sharpe Ratio:** Risk-adjusted return metric. Higher values (>1) indicate better returns relative to volatility. Calculated as (Return - Risk-free Rate) / Standard Deviation.
+
+**Sortino Ratio:** Like Sharpe but only considers downside volatility. Better for strategies where upside variance isn't a concern.
+
+**Calmar Ratio:** Annualized return divided by max drawdown. Higher values indicate better risk-adjusted performance relative to drawdown risk.
+
+**Omega Ratio:** Ratio of gains to losses above/below a threshold (usually 0). Values >1 indicate more upside than downside.
+
+**Profit Factor:** Gross profits divided by gross losses. Values >1 are profitable; >2 is considered excellent.
+
+**Recovery Factor:** Total profit divided by max drawdown. Measures how well the strategy recovers from losses.
+
+**VaR (Value at Risk - 95%):** The maximum expected loss at 95% confidence. Only 5% of days should have losses worse than this.
+
+**CVaR / Expected Shortfall:** The average loss when losses exceed VaR. Shows the expected loss in the worst 5% of scenarios.
+
+**Standard Deviation:** Measures the dispersion of returns. Higher values indicate more volatile/risky performance.
+
+**Skewness:** Measures asymmetry of returns. Positive skew = more extreme gains; Negative skew = more extreme losses.
+
+**Kurtosis:** Measures "fat tails" in returns. High kurtosis means more extreme events (both gains and losses) than a normal distribution.
+
+**Tail Ratio:** Ratio of the 95th percentile to the 5th percentile. Values >1 indicate larger gains than losses at the extremes.
+
+**Win Rate:** Percentage of trades that were profitable. Higher is better, but must be considered alongside avg win/loss size.
+
+**Kelly Criterion:** Optimal position size to maximize long-term growth. Calculated from win rate and profit/loss ratio. Use half-Kelly for safety.
+
+**Profit/Loss Ratio:** Average winning trade divided by average losing trade. Combined with win rate, determines overall profitability.
+
+**Win/Loss Streak:** Maximum consecutive wins and losses. Useful for understanding psychological and drawdown risk.
+
+**Risk of Ruin:** Probability of losing a significant portion of capital. Critical for assessing long-term survival of a strategy.""")
         
         # Modern footer
         st.markdown("<br><br>", unsafe_allow_html=True)
