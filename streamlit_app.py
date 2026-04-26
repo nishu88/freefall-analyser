@@ -757,106 +757,116 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 
-def inject_screenshot_js():
-    """Inject JavaScript for full-page screenshot using html2canvas."""
-    st.markdown("""
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script>
-    function takeFullScreenshot() {
-        const btn = document.getElementById('screenshot-btn');
-        if (btn) {
+def render_screenshot_button():
+    """Render the screenshot button using st.components.v1.html for working JS."""
+    screenshot_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <style>
+            body { margin: 0; padding: 0; background: transparent; }
+            .screenshot-btn {
+                background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+                color: white;
+                border: none;
+                padding: 0.5rem 1.2rem;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 0.9rem;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            .screenshot-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            }
+            .screenshot-btn:disabled {
+                background: #9CA3AF;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+        </style>
+    </head>
+    <body>
+        <button id="screenshot-btn" class="screenshot-btn" onclick="takeFullScreenshot()">
+            📸 Screenshot
+        </button>
+        <script>
+        function takeFullScreenshot() {
+            const btn = document.getElementById('screenshot-btn');
             btn.innerText = '⏳ Capturing...';
             btn.disabled = true;
-        }
-        
-        // Get the main content area
-        const mainContent = document.querySelector('.main');
-        if (!mainContent) {
-            alert('Could not find main content area');
-            return;
-        }
-        
-        // Store original scroll position
-        const originalScrollTop = window.scrollY;
-        
-        // Scroll to top first
-        window.scrollTo(0, 0);
-        
-        // Small delay to ensure scroll completes
-        setTimeout(() => {
-            html2canvas(mainContent, {
-                allowTaint: true,
-                useCORS: true,
-                scale: 2,
-                scrollY: 0,
-                scrollX: 0,
-                windowWidth: document.documentElement.scrollWidth,
-                windowHeight: document.documentElement.scrollHeight,
-                height: mainContent.scrollHeight,
-                width: mainContent.scrollWidth,
-                logging: false,
-                backgroundColor: '#ffffff'
-            }).then(canvas => {
-                // Create download link
-                const link = document.createElement('a');
-                const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-                link.download = `trades_analysis_${timestamp}.png`;
-                link.href = canvas.toDataURL('image/png', 1.0);
-                link.click();
-                
-                // Restore scroll position
-                window.scrollTo(0, originalScrollTop);
-                
-                if (btn) {
+            
+            // Access parent window (Streamlit app)
+            const parentDoc = window.parent.document;
+            const mainContent = parentDoc.querySelector('.main');
+            
+            if (!mainContent) {
+                alert('Could not find main content area');
+                btn.innerText = '📸 Screenshot';
+                btn.disabled = false;
+                return;
+            }
+            
+            // Store original scroll position
+            const originalScrollTop = window.parent.scrollY;
+            
+            // Scroll to top first
+            window.parent.scrollTo(0, 0);
+            
+            // Wait for scroll and render
+            setTimeout(() => {
+                html2canvas(mainContent, {
+                    allowTaint: true,
+                    useCORS: true,
+                    scale: 2,
+                    scrollY: -window.parent.scrollY,
+                    scrollX: 0,
+                    windowWidth: mainContent.scrollWidth,
+                    windowHeight: mainContent.scrollHeight,
+                    height: mainContent.scrollHeight,
+                    width: mainContent.scrollWidth,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    onclone: function(clonedDoc) {
+                        // Ensure all content is visible in clone
+                        const clonedMain = clonedDoc.querySelector('.main');
+                        if (clonedMain) {
+                            clonedMain.style.overflow = 'visible';
+                            clonedMain.style.height = 'auto';
+                        }
+                    }
+                }).then(canvas => {
+                    // Create and trigger download
+                    const link = document.createElement('a');
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+                    link.download = 'trades_analysis_' + timestamp + '.png';
+                    link.href = canvas.toDataURL('image/png', 1.0);
+                    link.click();
+                    
+                    // Restore scroll position
+                    window.parent.scrollTo(0, originalScrollTop);
+                    
                     btn.innerText = '📸 Screenshot';
                     btn.disabled = false;
-                }
-            }).catch(err => {
-                console.error('Screenshot failed:', err);
-                alert('Screenshot failed. Please try the Print to PDF option instead.');
-                window.scrollTo(0, originalScrollTop);
-                if (btn) {
+                }).catch(err => {
+                    console.error('Screenshot failed:', err);
+                    alert('Screenshot failed: ' + err.message + '\\n\\nTip: Use browser Print (Ctrl+P) → Save as PDF instead.');
+                    window.parent.scrollTo(0, originalScrollTop);
                     btn.innerText = '📸 Screenshot';
                     btn.disabled = false;
-                }
-            });
-        }, 300);
-    }
-    </script>
-    <style>
-    .screenshot-btn {
-        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 0.9rem;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-    }
-    .screenshot-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-    }
-    .screenshot-btn:disabled {
-        background: #9CA3AF;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_screenshot_button():
-    """Render the screenshot button in the UI."""
-    st.markdown("""
-    <button id="screenshot-btn" class="screenshot-btn" onclick="takeFullScreenshot()">
-        📸 Screenshot
-    </button>
-    """, unsafe_allow_html=True)
+                });
+            }, 500);
+        }
+        </script>
+    </body>
+    </html>
+    """
+    st.components.v1.html(screenshot_html, height=45)
 
 
 def main():
@@ -868,7 +878,6 @@ def main():
     )
     
     inject_custom_css()
-    inject_screenshot_js()
     
     # Modern header with screenshot button
     col_header, col_btn = st.columns([6, 1])
