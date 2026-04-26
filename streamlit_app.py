@@ -757,116 +757,37 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 
-def render_screenshot_button():
-    """Render the screenshot button using st.components.v1.html for working JS."""
-    screenshot_html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-        <style>
-            body { margin: 0; padding: 0; background: transparent; }
-            .screenshot-btn {
-                background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-                color: white;
-                border: none;
-                padding: 0.5rem 1.2rem;
-                border-radius: 8px;
-                cursor: pointer;
-                font-weight: 600;
-                font-size: 0.9rem;
-                transition: all 0.2s ease;
-                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            }
-            .screenshot-btn:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-            }
-            .screenshot-btn:disabled {
-                background: #9CA3AF;
-                cursor: not-allowed;
-                transform: none;
-                box-shadow: none;
-            }
-        </style>
-    </head>
-    <body>
-        <button id="screenshot-btn" class="screenshot-btn" onclick="takeFullScreenshot()">
-            📸 Screenshot
-        </button>
-        <script>
-        function takeFullScreenshot() {
-            const btn = document.getElementById('screenshot-btn');
-            btn.innerText = '⏳ Capturing...';
-            btn.disabled = true;
-            
-            // Access parent window (Streamlit app)
-            const parentDoc = window.parent.document;
-            const mainContent = parentDoc.querySelector('.main');
-            
-            if (!mainContent) {
-                alert('Could not find main content area');
-                btn.innerText = '📸 Screenshot';
-                btn.disabled = false;
-                return;
-            }
-            
-            // Store original scroll position
-            const originalScrollTop = window.parent.scrollY;
-            
-            // Scroll to top first
-            window.parent.scrollTo(0, 0);
-            
-            // Wait for scroll and render
-            setTimeout(() => {
-                html2canvas(mainContent, {
-                    allowTaint: true,
-                    useCORS: true,
-                    scale: 2,
-                    scrollY: -window.parent.scrollY,
-                    scrollX: 0,
-                    windowWidth: mainContent.scrollWidth,
-                    windowHeight: mainContent.scrollHeight,
-                    height: mainContent.scrollHeight,
-                    width: mainContent.scrollWidth,
-                    logging: false,
-                    backgroundColor: '#ffffff',
-                    onclone: function(clonedDoc) {
-                        // Ensure all content is visible in clone
-                        const clonedMain = clonedDoc.querySelector('.main');
-                        if (clonedMain) {
-                            clonedMain.style.overflow = 'visible';
-                            clonedMain.style.height = 'auto';
-                        }
-                    }
-                }).then(canvas => {
-                    // Create and trigger download
-                    const link = document.createElement('a');
-                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-                    link.download = 'trades_analysis_' + timestamp + '.png';
-                    link.href = canvas.toDataURL('image/png', 1.0);
-                    link.click();
-                    
-                    // Restore scroll position
-                    window.parent.scrollTo(0, originalScrollTop);
-                    
-                    btn.innerText = '📸 Screenshot';
-                    btn.disabled = false;
-                }).catch(err => {
-                    console.error('Screenshot failed:', err);
-                    alert('Screenshot failed: ' + err.message + '\\n\\nTip: Use browser Print (Ctrl+P) → Save as PDF instead.');
-                    window.parent.scrollTo(0, originalScrollTop);
-                    btn.innerText = '📸 Screenshot';
-                    btn.disabled = false;
-                });
-            }, 500);
+def inject_print_styles():
+    """Inject print-optimized styles."""
+    st.markdown("""
+    <style>
+    @media print {
+        .no-print, [data-testid="stSidebar"], header, footer, 
+        .stDeployButton, [data-testid="stToolbar"], [data-testid="stHeader"],
+        .stFileUploader, button { 
+            display: none !important; 
         }
-        </script>
-    </body>
-    </html>
-    """
-    st.components.v1.html(screenshot_html, height=45)
+        .stApp { background: white !important; }
+        .main .block-container { padding-top: 1rem !important; max-width: 100% !important; }
+        .element-container { break-inside: avoid; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def render_screenshot_button():
+    """Render save as PDF button with popover instructions."""
+    with st.popover("🖨️ Save as PDF"):
+        st.markdown("""
+        **To save this report as PDF:**
+        
+        1. Press **Ctrl+P** (Windows/Linux) or **⌘+P** (Mac)
+        2. Set Destination to **"Save as PDF"**
+        3. Click **Save**
+        
+        💡 *Tip: Expand all sections you want to include before printing*
+        """)
+        st.info("The page is print-optimized - buttons and sidebars will be hidden automatically.")
 
 
 def main():
@@ -878,6 +799,7 @@ def main():
     )
     
     inject_custom_css()
+    inject_print_styles()
     
     # Modern header with screenshot button
     col_header, col_btn = st.columns([6, 1])
