@@ -757,39 +757,6 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 
-def inject_print_styles():
-    """Inject print-optimized styles."""
-    st.markdown("""
-    <style>
-    @media print {
-        .no-print, [data-testid="stSidebar"], header, footer, 
-        .stDeployButton, [data-testid="stToolbar"], [data-testid="stHeader"],
-        .stFileUploader, button { 
-            display: none !important; 
-        }
-        .stApp { background: white !important; }
-        .main .block-container { padding-top: 1rem !important; max-width: 100% !important; }
-        .element-container { break-inside: avoid; }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def render_screenshot_button():
-    """Render save as PDF button with popover instructions."""
-    with st.popover("🖨️ Save as PDF"):
-        st.markdown("""
-        **To save this report as PDF:**
-        
-        1. Press **Ctrl+P** (Windows/Linux) or **⌘+P** (Mac)
-        2. Set Destination to **"Save as PDF"**
-        3. Click **Save**
-        
-        💡 *Tip: Expand all sections you want to include before printing*
-        """)
-        st.info("The page is print-optimized - buttons and sidebars will be hidden automatically.")
-
-
 def main():
     st.set_page_config(
         page_title="Trades Analyzer", 
@@ -799,20 +766,14 @@ def main():
     )
     
     inject_custom_css()
-    inject_print_styles()
     
-    # Modern header with screenshot button
-    col_header, col_btn = st.columns([6, 1])
-    with col_header:
-        st.markdown("""
-        <div class="app-header">
-            <h1>📊 Trades Analyzer</h1>
-            <p>Comprehensive trading performance analytics and visualization</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_btn:
-        st.markdown("<div style='padding-top: 1rem;'></div>", unsafe_allow_html=True)
-        render_screenshot_button()
+    # Modern header
+    st.markdown("""
+    <div class="app-header">
+        <h1>📊 Trades Analyzer</h1>
+        <p>Comprehensive trading performance analytics and visualization</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     col1, col, col2 = st.columns([1, 8, 1])
 
